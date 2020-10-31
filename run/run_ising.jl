@@ -1,8 +1,16 @@
 import TRG2
 using LinearAlgebra
 using TensorOperations
+
 global χc = 40
-global βc = log(1+sqrt(2))/2 - 0e-4;
+# lo-temp phase -5.6165040e-8
+# hi-temp phase -5.6165050e-8
+# lo-temp phase -5.01530000e-8
+# hi-temp phase -5.01530010e-8
+global βc = log(1+sqrt(2))/2 - 5.01530000e-8;
+
+# global χc = 80
+
 global Zi = TRG2.zi_2Dising(1, βc);
 global Ul, S0, Ur = svd(reshape(Zi, (4, 4)));
 global kscal = 0.5
@@ -13,7 +21,7 @@ global S0b = S0.^(-kscal);
 global Ul = reshape(Ul, (2, 2, 4));
 global Ur = reshape(Ur, (2, 2, 4));
 
-global (Zcur,
+global (Zcll, Zcur,
         Ux0, Ux1,
         Uy0, Uy1,
         Sx_in, Sy_in,
@@ -30,13 +38,14 @@ global (Zcur,
 # global logSo = [So; zeros(χc^2 - length(So))];
 global logSx = [Sx; zeros(χc - length(Sx))];
 global logSy = [Sy; zeros(χc - length(Sx))];
-global logUx = vec(Ux0[1:4, 1:4, 1:8]);
-global logNrm = [vec(Ux0)'vec(Ux0)];
+global logUx = zeros(1000); # vec(Ux0[1:4, 1:4, 1:8]);
+global logNrm = [sum(abs.(Ux0))];
 global logZ = log(Zcur) / 2;
+global logZll = [Zcll];
 
-for i = 1:40
+for i = 1:60
     Ux0_prev = Ux0
-    global (Zcur,
+    global (Zcll, Zcur,
             Ux0, Ux1,
             Uy0, Uy1,
             Sx_in, Sy_in,
@@ -54,9 +63,10 @@ for i = 1:40
     # global logSo = [logSo [So; zeros(χc^2 - length(So))]];
     global logSx = [logSx Sx_real];
     global logSy = [logSy Sy_real];
-    global logUx = [logUx vec(Ux0[1:4, 1:4, 1:8])];
-    global logNrm = [logNrm; vec(Ux0)'vec(Ux0)];
+    global logUx = [logUx vec(Ux0[1:10, 1:10, 1:10])];
+    global logNrm = [logNrm; sum(abs.(Ux0[1:10, 1:10, 1:10]))];
     global logZ += log(Zcur) / 2^(i+1);
+    global logZll = [logZll; Zcll];
 
     #= Gauge fixing
     if size(Ux0) == size(Ux0_prev) # && i > 14
@@ -82,6 +92,6 @@ for i = 1:40
     end =#
 
     # Print
-    @show (i, Zcur, exp(logZ))
+    @show (i, Zcll, Zcur, exp(logZ))
 end
 
