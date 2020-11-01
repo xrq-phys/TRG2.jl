@@ -32,14 +32,14 @@ global (Zcll, Zcur,
                             S0b,
                             χc);
 
-# global logSo = [So; zeros(χc^2 - length(So))];
 global logSx = [Sx; zeros(χc - length(Sx))];
 global logSy = [Sy; zeros(χc - length(Sx))];
+global logUx = zeros(1000); # vec(Ux0[1:4, 1:4, 1:8]);
+global logFb = [sum(abs.(Ux0))];
 TRG2.bond_scale!(Ux0, Ux1, Uy0, Uy1, Sx, Sy, kscal);
 
 # Other loggings.
-global logUx = zeros(1000); # vec(Ux0[1:4, 1:4, 1:8]);
-global logNrm = [sum(abs.(Ux0))];
+# global logSo = [So; zeros(χc^2 - length(So))];
 global logZ = log(Zcur) / 2;
 global logZll = [Zcll];
 
@@ -61,12 +61,13 @@ for i = 1:60
                                 χc);
     Sx_real = [Sx; zeros(χc - length(Sx))]
     Sy_real = [Sy; zeros(χc - length(Sx))]
-    TRG2.bond_scale!(Ux0, Ux1, Uy0, Uy1, Sx, Sy, kscal);
-    # global logSo = [logSo [So; zeros(χc^2 - length(So))]];
     global logSx = [logSx Sx_real];
     global logSy = [logSy Sy_real];
     global logUx = [logUx vec(Ux0[1:10, 1:10, 1:10])];
-    global logNrm = [logNrm; sum(abs.(Ux0[1:10, 1:10, 1:10]))];
+    global logFb = [logFb; sum(abs.(Ux0[1:10, 1:10, 1:10]))];
+    TRG2.bond_scale!(Ux0, Ux1, Uy0, Uy1, Sx, Sy, kscal);
+
+    # global logSo = [logSo [So; zeros(χc^2 - length(So))]];
     global logZ += log(Zcur) / 2^(i+1);
     global logZll = [logZll; Zcll];
 

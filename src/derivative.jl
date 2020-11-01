@@ -5,7 +5,7 @@ bond_trg_derivative(Ux0_s::Array{ElType, 3}, ∂Ux0_s::Array{ElType, 3}, # << Th
                     Ux1_s::Array{ElType, 3}, ∂Ux1_s::Array{ElType, 3},
                     Uy0_s::Array{ElType, 3}, ∂Uy0_s::Array{ElType, 3},
                     Uy1_s::Array{ElType, 3}, ∂Uy1_s::Array{ElType, 3},
-                    Sx_outer::Vector{ElType}, ∂Sx_outer::Vector{ElType},
+                    Sx_outer::Vector{ElType}, ∂Sx_outer::Vector{ElType}, # << Interface consistency. Not used in fact.
                     Sy_outer::Vector{ElType}, ∂Sy_outer::Vector{ElType},
                     Ux0_2iso::Array{ElType, 3},
                     Ux1_2iso::Array{ElType, 3},
