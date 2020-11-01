@@ -1,4 +1,4 @@
-import TRG2
+using TRG2
 using LinearAlgebra
 using TensorOperations
 
@@ -28,16 +28,16 @@ global (Zcll, Zcur,
         Sx, Sy,
         So) = TRG2.bond_trg(Ul, Array(Ur),
                             Ul, Array(Ur),
-                            ones(2),
-                            ones(2),
                             S0b,
                             S0b,
-                            χc,
-                            kscal);
+                            χc);
 
 # global logSo = [So; zeros(χc^2 - length(So))];
 global logSx = [Sx; zeros(χc - length(Sx))];
 global logSy = [Sy; zeros(χc - length(Sx))];
+TRG2.bond_scale!(Ux0, Ux1, Uy0, Uy1, Sx, Sy, kscal);
+
+# Other loggings.
 global logUx = zeros(1000); # vec(Ux0[1:4, 1:4, 1:8]);
 global logNrm = [sum(abs.(Ux0))];
 global logZ = log(Zcur) / 2;
@@ -45,6 +45,10 @@ global logZll = [Zcll];
 
 for i = 1:60
     Ux0_prev = Ux0
+    TRG2.bond_merge!(Ux0, Ux1,
+                     Uy0, Uy1,
+                     Sx_in,
+                     Sy_in);
     global (Zcll, Zcur,
             Ux0, Ux1,
             Uy0, Uy1,
@@ -52,14 +56,12 @@ for i = 1:60
             Sx, Sy,
             So) = TRG2.bond_trg(Ux0, Array(Ux1),
                                 Uy0, Array(Uy1),
-                                Sx_in,
-                                Sy_in,
                                 Sx,
                                 Sy,
-                                χc,
-                                kscal);
-    Sx_real = [(x -> x^(kscal^-1) / (x^(kscal^-1*2) + 1e-5)).(Sx); zeros(χc - length(Sx))]
-    Sy_real = [(x -> x^(kscal^-1) / (x^(kscal^-1*2) + 1e-5)).(Sy); zeros(χc - length(Sx))]
+                                χc);
+    Sx_real = [Sx; zeros(χc - length(Sx))]
+    Sy_real = [Sy; zeros(χc - length(Sx))]
+    TRG2.bond_scale!(Ux0, Ux1, Uy0, Uy1, Sx, Sy, kscal);
     # global logSo = [logSo [So; zeros(χc^2 - length(So))]];
     global logSx = [logSx Sx_real];
     global logSy = [logSy Sy_real];
