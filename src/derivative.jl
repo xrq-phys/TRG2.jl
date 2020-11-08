@@ -92,8 +92,8 @@ bond_trg_derivative(Ux0_s::Array{ElType, 3}, ∂Ux0_s::Array{ElType, 3}, # << Th
 
     # Ux-part, diagonal part.
     begin
-        local Ux0_2isom = reshape(Ux0_2isom, (χ2^2, χc))
-        local Ux1_2isom = reshape(Ux1_2isom, (χ2^2, χc))
+        local Ux0_2isom = reshape(Ux0_2iso, (χ2^2, χc))
+        local Ux1_2isom = reshape(Ux1_2iso, (χ2^2, χc))
         local UdAVx = Ux0_2isom'spmm(∂Tx, Ux1_2isom)
         local Fij, UdAVSx, SUdAVx, US2x, VS2x, ∂LHS_ΓUx, ∂ΓUx, ∂LHS_ΠVx, ∂ΠVx
         ∂Sx = diag(UdAVx)
@@ -119,7 +119,7 @@ bond_trg_derivative(Ux0_s::Array{ElType, 3}, ∂Ux0_s::Array{ElType, 3}, # << Th
                                               ∂Γ = reshape(∂v, (χ2^2, χc))
                                               vec(∂Γ*Diagonal(Sx_2.^2) - spmm(Tx, spmm(Tx', ∂Γ)) + US2x*Ux0_2isom'∂Γ)
                                           end, nothing, χ2^2*χc, χ2^2*χc),
-                        vec(∂LHS_ΓUx), log=true)
+                        vec(∂LHS_ΓUx), log=true, maxiter=800)
         ∂Ux0_2iso += ∂ΓUx
         # V off-diagonal part.
         ∂LHS_ΠVx = spmm(∂Tx', Ux0_2isom) * Diagonal(Sx_2) + spmm(Tx', spmm(∂Tx, Ux1_2isom))
@@ -130,14 +130,20 @@ bond_trg_derivative(Ux0_s::Array{ElType, 3}, ∂Ux0_s::Array{ElType, 3}, # << Th
                                               ∂Π = reshape(∂w, (χ2^2, χc))
                                               vec(∂Π*Diagonal(Sx_2.^2) - spmm(Tx', spmm(Tx, ∂Π)) + VS2x*Ux1_2isom'∂Π)
                                           end, nothing, χ2^2*χc, χ2^2*χc),
-                        vec(∂LHS_ΠVx), log=true)
+                        vec(∂LHS_ΠVx), log=true, maxiter=800)
         ∂Ux1_2iso += ∂ΠVx
+        @show convUx
+        @show convVx
+        if !convUx.isconverged || !convVx.isconverged
+            @show convUx.data[:resnorm][end]
+            @show convVx.data[:resnorm][end]
+        end
     end
 
     # Uy-part, diagonal part.
     begin
-        local Uy0_2isom = reshape(Uy0_2isom, (χ2^2, χc))
-        local Uy1_2isom = reshape(Uy1_2isom, (χ2^2, χc))
+        local Uy0_2isom = reshape(Uy0_2iso, (χ2^2, χc))
+        local Uy1_2isom = reshape(Uy1_2iso, (χ2^2, χc))
         local UdAVy = Uy0_2isom'spmm(∂Ty, Uy1_2isom)
         local Fij, UdAVSy, SUdAVy, US2y, VS2y, ∂LHS_ΓUy, ∂ΓUy, ∂LHS_ΠVy, ∂ΠVy
         ∂Sy = diag(UdAVy)
@@ -161,7 +167,7 @@ bond_trg_derivative(Ux0_s::Array{ElType, 3}, ∂Ux0_s::Array{ElType, 3}, # << Th
                                               ∂Γ = reshape(∂v, (χ2^2, χc))
                                               vec(∂Γ*Diagonal(Sy_2.^2) - spmm(Ty, spmm(Ty', ∂Γ)) + US2y*Uy0_2isom'∂Γ)
                                           end, nothing, χ2^2*χc, χ2^2*χc),
-                        vec(∂LHS_ΓUy), log=true)
+                        vec(∂LHS_ΓUy), log=true, tol=1e-8, maxiter=800)
         ∂Uy0_2iso += ∂ΓUy
         # V off-diagonal part.
         ∂LHS_ΠVy = spmm(∂Ty', Uy0_2isom) * Diagonal(Sy_2) + spmm(Ty', spmm(∂Ty, Uy1_2isom))
@@ -172,14 +178,20 @@ bond_trg_derivative(Ux0_s::Array{ElType, 3}, ∂Ux0_s::Array{ElType, 3}, # << Th
                                               ∂Π = reshape(∂w, (χ2^2, χc))
                                               vec(∂Π*Diagonal(Sy_2.^2) - spmm(Ty', spmm(Ty, ∂Π)) + VS2y*Uy1_2isom'∂Π)
                                           end, nothing, χ2^2*χc, χ2^2*χc),
-                        vec(∂LHS_ΠVy), log=true)
+                        vec(∂LHS_ΠVy), log=true, tol=1e-8, maxiter=800)
         ∂Uy1_2iso += ∂ΠVy
+        @show convUy
+        @show convVy
+        if !convUy.isconverged || !convVy.isconverged
+            @show convUy.data[:resnorm][end]
+            @show convVy.data[:resnorm][end]
+        end
     end
 
-    (reshape(∂Ux0_2iso, shape(Ux0_2iso)),
-     reshape(∂Ux1_2iso, shape(Ux1_2iso)),
-     reshape(∂Uy0_2iso, shape(Uy0_2iso)),
-     reshape(∂Uy1_2iso, shape(Uy1_2iso)),
+    (reshape(∂Ux0_2iso, size(Ux0_2iso)),
+     reshape(∂Ux1_2iso, size(Ux1_2iso)),
+     reshape(∂Uy0_2iso, size(Uy0_2iso)),
+     reshape(∂Uy1_2iso, size(Uy1_2iso)),
      ∂Sx,
      ∂Sy)
 end

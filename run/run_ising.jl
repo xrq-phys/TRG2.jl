@@ -5,14 +5,12 @@ using LinearMaps
 using Arpack
 include("run_disometry.jl")
 
-global χc = 40
-# lo-temp phase -5.6165040e-8
-# hi-temp phase -5.6165050e-8
-# lo-temp phase -5.01530000e-8
-# hi-temp phase -5.01530010e-8
-global βc = log(1+sqrt(2))/2 - 5.01530000e-8;
+# global χc = 40
+# [ -5.01530000e-8, -5.01530010e-8 ]
+# global βc = log(1+sqrt(2))/2 - 5.01530000e-8;
 
-# global χc = 80
+global χc = 14
+global βc = log(1+sqrt(2))/2;
 
 global Zi = TRG2.zi_2Dising(1, βc);
 global Ul, S0, Ur = svd(reshape(Zi, (4, 4)));
@@ -53,7 +51,7 @@ TRG2.bond_scale!(Ux0, Ux1, Uy0, Uy1, Sx, Sy, kscal);
 global logZ = log(Zcur) / 2;
 global logZll = [Zcll];
 
-for i = 1:60
+for i = 1:40
     #= Loop body: "invariants"
       Ux0, Ux1, Uy0, Uy1, Sx, Sx =>
       (S)  (S)
@@ -64,7 +62,7 @@ for i = 1:60
        /   \
       (S)  (S)
      =#
-    calc_critical_from_∂ = false
+    calc_critical_from_∂ = i > 20 && i < 23
 
     # Rescale weighted external bonds.
     if calc_critical_from_∂
@@ -129,20 +127,21 @@ for i = 1:60
     end =#
 
     if calc_critical_from_∂
+        global Scriti
         # Vectorize several objects.
-        idEndUx0 = size(Ux0_STEP1)
-        idEndUx1 = IdxUx0+ size(Ux1_STEP1)
-        idEndUy0 = IdxUx1+ size(Uy0_STEP1)
-        idEndUy1 = IdxUy0+ size(Uy1_STEP1)
-        idEndSx  = IdxUy1+ size(Sx_STEP1)
-        idEndSy  = IdxSx + size(Sy_STEP1)
+        idEndUx0 = length(Ux0_STEP1)
+        idEndUx1 = idEndUx0+ length(Ux1_STEP1)
+        idEndUy0 = idEndUx1+ length(Uy0_STEP1)
+        idEndUy1 = idEndUy0+ length(Uy1_STEP1)
+        idEndSx  = idEndUy1+ length(Sx_STEP1)
+        idEndSy  = idEndSx + length(Sy_STEP1)
         Scriti,  = eigs(LinearMap{Float64}(v -> begin
-                                               ∂Ux0 = resize(v[         1:idEndUx0], size(Ux0_STEP1))
-                                               ∂Ux1 = resize(v[idEndUx0+1:idEndUx1], size(Ux1_STEP1))
-                                               ∂Uy0 = resize(v[idEndUx1+1:idEndUy0], size(Uy0_STEP1))
-                                               ∂Uy1 = resize(v[idEndUy0+1:idEndUy1], size(Uy1_STEP1))
-                                               ∂Sx  = resize(v[idEndUy1+1:idEndSx ], size(Sx_STEP1))
-                                               ∂Sy  = resize(v[idEndSx +1:idEndSy ], size(Sy_STEP1))
+                                               ∂Ux0 = reshape(v[         1:idEndUx0], size(Ux0_STEP1))
+                                               ∂Ux1 = reshape(v[idEndUx0+1:idEndUx1], size(Ux1_STEP1))
+                                               ∂Uy0 = reshape(v[idEndUx1+1:idEndUy0], size(Uy0_STEP1))
+                                               ∂Uy1 = reshape(v[idEndUy0+1:idEndUy1], size(Uy1_STEP1))
+                                               ∂Sx  = reshape(v[idEndUy1+1:idEndSx ], size(Sx_STEP1))
+                                               ∂Sy  = reshape(v[ idEndSx+1:idEndSy ], size(Sy_STEP1))
                                                # Compute derivative.
                                                (∂Ux0_2, ∂Ux1_2,
                                                 ∂Uy0_2, ∂Uy1_2,
@@ -169,17 +168,15 @@ for i = 1:60
                                                                            Uy1_2_STEP3,
                                                                            Sx_2,
                                                                            Sy_2)
-                                               [vec(∂Ux0_2);
-                                                vec(∂Ux1_2);
-                                                vec(∂Uy0_2);
-                                                vec(∂Uy1_2);
-                                                vec(∂Sx);
-                                                vec(∂Sy)]
+                                               [vec(∂Ux0_2); vec(∂Ux1_2);
+                                                vec(∂Uy0_2); vec(∂Uy1_2);
+                                                vec(∂Sx_2);
+                                                vec(∂Sy_2)]
                                            end,
                                            nothing,
                                            idEndSy,
                                            idEndSy),
-                        nev=nisoev, ritzvec=false);
+                        nev=nisoev, ritzvec=false, tol=1e-2);
         @show log.(Scriti)./(0.5*log(2))
     end
 
