@@ -12,7 +12,7 @@ bond_trg_derivative(Ux0_s::Array{ElType, 3}, ∂Ux0_s::Array{ElType, 3}, # << Th
                     Uy0_2iso::Array{ElType, 3},
                     Uy1_2iso::Array{ElType, 3},
                     Sx_2::Vector{ElType},
-                    Sy_2::Vector{ElType}) = begin
+                    Sy_2::Vector{ElType}) where {ElType<:Real} = begin
 
     χ1, _, χk = size(Ux0_s)
     χ2, _, χc = size(Ux0_2iso)
@@ -176,5 +176,11 @@ bond_trg_derivative(Ux0_s::Array{ElType, 3}, ∂Ux0_s::Array{ElType, 3}, # << Th
         ∂Uy1_2iso += ∂ΠVy
     end
 
+    (reshape(∂Ux0_2iso, shape(Ux0_2iso)),
+     reshape(∂Ux1_2iso, shape(Ux1_2iso)),
+     reshape(∂Uy0_2iso, shape(Uy0_2iso)),
+     reshape(∂Uy1_2iso, shape(Uy1_2iso)),
+     ∂Sx,
+     ∂Sy)
 end
 

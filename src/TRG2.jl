@@ -10,6 +10,8 @@ using Arpack
 
 full_svd = false
 
+inv_exp(x, kscal) = x^kscal / (x^(2*kscal) + 1e-8)
+
 fix_sign!(U::Matrix{ElType},
           S::Vector{ElType},
           V) where {ElType<:Real} = begin
@@ -36,8 +38,8 @@ bond_scale!(Ux0::Array{ElType, 3},
     rmul!(reshape(Ux1, (χo^2, χc)), Diagonal(Sx.^((1+kscal)/2)))
     rmul!(reshape(Uy0, (χo^2, χc)), Diagonal(Sy.^((1+kscal)/2)))
     rmul!(reshape(Uy1, (χo^2, χc)), Diagonal(Sy.^((1+kscal)/2)))
-    Sx .= (x -> x^kscal / (x^(2*kscal) + 1e-8)).(Sx)
-    Sy .= (x -> x^kscal / (x^(2*kscal) + 1e-8)).(Sy)
+    Sx .= inv_exp.(Sx, kscal)
+    Sy .= inv_exp.(Sy, kscal)
 
     Ux0, Ux1, Uy0, Uy1, Sx, Sy
 end
@@ -191,6 +193,7 @@ gauge_u(Ucur::Array{ElType, 3},
     Uytrans, Uxtrans
 end
 
+include("derivative.jl")
 include("ising.jl")
 
 end
