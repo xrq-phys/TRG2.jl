@@ -104,10 +104,10 @@ for i = 1:40
     # Weighted external bonds becomes inner now.
     # Merge.
     if calc_critical_from_∂
-        global Ux0_2_STEP3 = Ux0_2
-        global Ux1_2_STEP3 = Ux1_2
-        global Uy0_2_STEP3 = Uy0_2
-        global Uy1_2_STEP3 = Uy1_2
+        global Ux0_2_STEP3 = copy(Ux0_2)
+        global Ux1_2_STEP3 = copy(Ux1_2)
+        global Uy0_2_STEP3 = copy(Uy0_2)
+        global Uy1_2_STEP3 = copy(Uy1_2)
         # Rigorously Sx_in should also be counted
         #  but skip for now.
         # Sx_2 is final output.
