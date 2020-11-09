@@ -62,7 +62,7 @@ for i = 1:40
        /   \
       (S)  (S)
      =#
-    calc_critical_from_∂ = i > 20 && i < 23
+    calc_critical_from_∂ = i > 10 && i < 13
 
     # Rescale weighted external bonds.
     if calc_critical_from_∂
@@ -177,7 +177,7 @@ for i = 1:40
                                            idEndSy,
                                            idEndSy),
                         nev=nisoev, ritzvec=false, tol=1e-2);
-        @show log.(Scriti)./(0.5*log(2))
+        @show Scriti
     end
 
     # For lines that might violate invariant rule, put them into blocks

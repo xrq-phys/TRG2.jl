@@ -1,3 +1,5 @@
+# Dual of RG loop.
+#
 
 run_bond_trg_diso(#= Scale-bond input. =#
                   Ux0_s::AbstractArray{ElType, 3}, ∂Ux0_s::AbstractArray{ElType, 3},
