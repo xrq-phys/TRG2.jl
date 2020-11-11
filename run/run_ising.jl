@@ -167,7 +167,8 @@ for i = 1:40
                                                                            Uy0_2_STEP3,
                                                                            Uy1_2_STEP3,
                                                                            Sx_2,
-                                                                           Sy_2)
+                                                                           Sy_2,
+                                                                           Zcur)
                                                [vec(∂Ux0_2); vec(∂Ux1_2);
                                                 vec(∂Uy0_2); vec(∂Uy1_2);
                                                 vec(∂Sx_2);

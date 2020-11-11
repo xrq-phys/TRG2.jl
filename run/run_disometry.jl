@@ -27,6 +27,7 @@ run_bond_trg_diso(#= Scale-bond input. =#
                    & loop output ("invariant"). =#
                   Sx_2::Vector{ElType},
                   Sy_2::Vector{ElType},
+                  SAmp::Real
                   #= Bond-merging output
                    & loop output ("invariant").
                    - Not used in this routine. =#) where {ElType<:Real} = begin
@@ -75,8 +76,10 @@ run_bond_trg_diso(#= Scale-bond input. =#
                                      Sy_outer, ∂Sy_outer,
                                      Ux0_2, Array(Ux1_2),
                                      Uy0_2, Array(Uy1_2),
-                                     Sx_2,
-                                     Sy_2)
+                                     Sx_2.*SAmp,
+                                     Sy_2.*SAmp)
+    ∂Sx .= ∂Sx ./ SAmp - ∂Sx[1] .* Sx_2 ./ SAmp
+    ∂Sy .= ∂Sy ./ SAmp - ∂Sx[1] .* Sy_2 ./ SAmp
     # Update bond dimensions.
     χo, _, χc = size(Ux0_2)
 
