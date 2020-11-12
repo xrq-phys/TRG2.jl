@@ -78,8 +78,8 @@ run_bond_trg_diso(#= Scale-bond input. =#
                                      Uy0_2, Array(Uy1_2),
                                      Sx_2.*SAmp,
                                      Sy_2.*SAmp)
-    ∂Sx .= ∂Sx ./ SAmp - ∂Sx[1] .* Sx_2 ./ SAmp
-    ∂Sy .= ∂Sy ./ SAmp - ∂Sx[1] .* Sy_2 ./ SAmp
+    ∂Sx .= ∂Sx ./ SAmp # - ∂Sx[1] .* Sx_2 ./ SAmp
+    ∂Sy .= ∂Sy ./ SAmp # - ∂Sx[1] .* Sy_2 ./ SAmp
     # Update bond dimensions.
     χo, _, χc = size(Ux0_2)
 

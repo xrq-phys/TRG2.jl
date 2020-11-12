@@ -1,4 +1,5 @@
 using TRG2
+using TRG2: inv_exp
 using LinearAlgebra
 using TensorOperations
 using LinearMaps
@@ -133,15 +134,17 @@ for i = 1:40
         idEndUx1 = idEndUx0+ length(Ux1_STEP1)
         idEndUy0 = idEndUx1+ length(Uy0_STEP1)
         idEndUy1 = idEndUy0+ length(Uy1_STEP1)
-        idEndSx  = idEndUy1+ length(Sx_STEP1)
-        idEndSy  = idEndSx + length(Sy_STEP1)
+        # idEndSx  = idEndUy1+ length(Sx_STEP1)
+        # idEndSy  = idEndSx + length(Sy_STEP1)
         Scriti,  = eigs(LinearMap{Float64}(v -> begin
                                                ∂Ux0 = reshape(v[         1:idEndUx0], size(Ux0_STEP1))
                                                ∂Ux1 = reshape(v[idEndUx0+1:idEndUx1], size(Ux1_STEP1))
                                                ∂Uy0 = reshape(v[idEndUx1+1:idEndUy0], size(Uy0_STEP1))
                                                ∂Uy1 = reshape(v[idEndUy0+1:idEndUy1], size(Uy1_STEP1))
-                                               ∂Sx  = reshape(v[idEndUy1+1:idEndSx ], size(Sx_STEP1))
-                                               ∂Sy  = reshape(v[ idEndSx+1:idEndSy ], size(Sy_STEP1))
+                                               ∂Sx  = zeros(size(Sx_STEP1)...)
+                                               ∂Sy  = zeros(size(Sx_STEP1)...)
+                                               # ∂Sx  = reshape(v[idEndUy1+1:idEndSx ], size(Sx_STEP1))
+                                               # ∂Sy  = reshape(v[ idEndSx+1:idEndSy ], size(Sy_STEP1))
                                                # Compute derivative.
                                                (∂Ux0_2, ∂Ux1_2,
                                                 ∂Uy0_2, ∂Uy1_2,
@@ -169,14 +172,23 @@ for i = 1:40
                                                                            Sx_2,
                                                                            Sy_2,
                                                                            Zcur)
+                                               # Transfer singular values.
+                                               # Note here Ux0_2 (final out) is used instead of Ux0_2_STEP3.
+                                               ∂Sx_2scal = Array(Diagonal(∂Sx_2 .* inv_exp.(2 .*Sx_2, 1, 1e-3)))
+                                               ∂Sy_2scal = Array(Diagonal(∂Sy_2 .* inv_exp.(2 .*Sy_2, 1, 1e-3)))
+                                               @tensor ∂Ux0_2[i, j, k] += Ux0_2[i, j, K] * ∂Sx_2scal[K, k]
+                                               @tensor ∂Ux1_2[i, j, k] += Ux1_2[i, j, K] * ∂Sx_2scal[K, k]
+                                               @tensor ∂Uy0_2[i, j, k] += Uy0_2[i, j, K] * ∂Sy_2scal[K, k]
+                                               @tensor ∂Uy1_2[i, j, k] += Uy1_2[i, j, K] * ∂Sy_2scal[K, k]
                                                [vec(∂Ux0_2); vec(∂Ux1_2);
-                                                vec(∂Uy0_2); vec(∂Uy1_2);
-                                                vec(∂Sx_2);
-                                                vec(∂Sy_2)]
+                                                vec(∂Uy0_2); vec(∂Uy1_2)
+                                                # vec(∂Sx_2);
+                                                # vec(∂Sy_2)
+                                                ]
                                            end,
                                            nothing,
-                                           idEndSy,
-                                           idEndSy),
+                                           idEndUy1,
+                                           idEndUy1),
                         nev=nisoev, ritzvec=false, tol=1e-2);
         @show Scriti
     end

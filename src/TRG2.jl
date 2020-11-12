@@ -10,7 +10,7 @@ using Arpack
 
 full_svd = false
 
-inv_exp(x, kscal) = x^kscal / (x^(2*kscal) + 1e-8)
+inv_exp(x, kscal, tol=1e-8) = x^kscal / (x^(2*kscal) + tol)
 
 fix_sign!(U::Matrix{ElType},
           S::Vector{ElType},
