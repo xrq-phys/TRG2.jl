@@ -180,6 +180,12 @@ for i = 1:40
                                                @tensor ∂Ux1_2[i, j, k] += Ux1_2[i, j, K] * ∂Sx_2scal[K, k]
                                                @tensor ∂Uy0_2[i, j, k] += Uy0_2[i, j, K] * ∂Sy_2scal[K, k]
                                                @tensor ∂Uy1_2[i, j, k] += Uy1_2[i, j, K] * ∂Sy_2scal[K, k]
+
+                                               # Cast sign mask to derivative.
+                                               ∂Ux0_2 .*= sign.(Ux0_2) .* sign.(Ux0_STEP1)
+                                               ∂Ux1_2 .*= sign.(Ux1_2) .* sign.(Ux1_STEP1)
+                                               ∂Uy0_2 .*= sign.(Uy0_2) .* sign.(Uy0_STEP1)
+                                               ∂Uy1_2 .*= sign.(Uy1_2) .* sign.(Uy1_STEP1)
                                                [vec(∂Ux0_2); vec(∂Ux1_2);
                                                 vec(∂Uy0_2); vec(∂Uy1_2)
                                                 # vec(∂Sx_2);
