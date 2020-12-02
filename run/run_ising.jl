@@ -227,6 +227,19 @@ for i = 1:40
         # global Sx_in, Sy_in = Sy_in, Sx_in
     end =#
 
+    # Compute 1-D transfer matrix.
+    begin
+        @tensor M1[bd, bl, bu, br] := Uy0[br, bd, u] * Diagonal(Sy*Zcur)[u, l] * Uy1[bl, bu, l]
+        χbd, χbl, χbu, χbr = size(M1)
+        _, _, χxc = size(Ux0)
+        M1 = reshape(M1, (χbd*χbl, χbu*χbr))
+        M1 = reshape(Ux1, (χbd*χbl, χxc))' * M1 * reshape(Ux0, (χbu*χbr, χxc))
+        lmul!(Diagonal(sqrt.(Sx*Zcur)), M1)
+        rmul!(M1, Diagonal(sqrt.(Sx*Zcur)))
+        _, SM1, _ = svd(M1)
+        @show SM1
+    end
+
     # Print
     @show (i, Zcll, Zcur, exp(logZ))
 end
