@@ -242,5 +242,7 @@ for i = 1:40
 
     # Print
     @show (i, Zcll, Zcur, exp(logZ))
+    flush(stdout)
+    flush(stderr)
 end
 

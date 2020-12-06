@@ -82,6 +82,8 @@ run_bond_trg_diso(#= Scale-bond input. =#
     ∂Sy .= ∂Sy ./ SAmp # - ∂Sx[1] .* Sy_2 ./ SAmp
     # Update bond dimensions.
     χo, _, χc = size(Ux0_2)
+    flush(stdout)
+    flush(stderr)
 
     # Merge S.
     ((U, S, ∂U, ∂S) -> begin
