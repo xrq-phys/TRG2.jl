@@ -103,6 +103,8 @@ bond_trg(Ux0::Array{ElType, 3},
             Sref = Sx_2
             χcut = χd*χr
         end
+        infox = nothing
+        infoy = nothing
     else
         _, _, χd = size(Uy1)
         _, _, χr = size(Ux1)
