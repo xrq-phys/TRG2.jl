@@ -15,10 +15,19 @@ global βc = log(1+sqrt(2))/2 - 5.6165040e-8;
 # global χc = 64
 # global βc = log(1+sqrt(2))/2;
 
-global Zi = TRG2.zi_2Dising(1, βc);
-global Ul, S0, Ur = svd(reshape(Zi, (4, 4)));
+Zi = TRG2.zi_2Dising(1, βc);
+Uℤ = [ 1/2^0.5 -1/2^0.5;
+       1/2^0.5  1/2^0.5 ];
+@tensor Zℤ[u, l, d, r] := Zi[U, L, D, R] * Uℤ[U, u] * Uℤ[L, l] * Uℤ[D, d] * Uℤ[R, r];
+kill_zeros!(T) = broadcast!(x -> if abs(x)>1e-13
+                                return x
+                            else return 0.0
+                            end, T, T)
+
+global Ul, S0, Ur = svd(reshape(Zℤ, (4, 4)));
 global kscal = 0.5
 global nisoev = 20
+kill_zeros!(S0)
 
 rmul!(Ur, Diagonal(S0.^((kscal+1)/2)));
 rmul!(Ul, Diagonal(S0.^((kscal+1)/2)));
@@ -37,6 +46,8 @@ begin
                                 S0b,
                                 S0b,
                                 χc);
+    kill_zeros!(Sx)
+    kill_zeros!(Sy)
     TRG2.bond_merge!(Ux0, Ux1,
                      Uy0, Uy1,
                      Sx_in,
@@ -215,6 +226,8 @@ for i = 1:40
         global Uy0, Uy1 = Uy0_2, Uy1_2
         global Sx, Sy = Sx_2, Sy_2
     end
+    kill_zeros!(Sx)
+    kill_zeros!(Sy)
     #= End of Loop body =#
 
     Sx_real = [Sx; zeros(χc - length(Sx))]
