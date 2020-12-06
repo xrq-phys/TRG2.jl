@@ -6,12 +6,14 @@ using LinearMaps
 using Arpack
 include("run_disometry.jl")
 
-# global χc = 40
-# [ -5.01530000e-8, -5.01530010e-8 ]
-# global βc = log(1+sqrt(2))/2 - 5.01530000e-8;
+global χc = 40
+# [ -5.0153000e-8, -5.0153001e-8 ]
+# [ -5.6165040e-8, -5.6165050e-8 ]
+global βc = log(1+sqrt(2))/2 - 5.6165040e-8;
+# @info "High-temperature phase."
 
-global χc = 14
-global βc = log(1+sqrt(2))/2;
+# global χc = 64
+# global βc = log(1+sqrt(2))/2;
 
 global Zi = TRG2.zi_2Dising(1, βc);
 global Ul, S0, Ur = svd(reshape(Zi, (4, 4)));
@@ -172,6 +174,12 @@ for i = 1:40
                                                                            Sx_2,
                                                                            Sy_2,
                                                                            Zcur)
+                                               # Cast value mask to avoid numerical "bomb".
+                                               ∂Ux0_2 .*= (x -> 1-exp(-x/1e-3)).(Ux0_2)
+                                               ∂Ux1_2 .*= (x -> 1-exp(-x/1e-3)).(Ux1_2)
+                                               ∂Uy0_2 .*= (x -> 1-exp(-x/1e-3)).(Uy0_2)
+                                               ∂Uy1_2 .*= (x -> 1-exp(-x/1e-3)).(Uy1_2)
+
                                                # Transfer singular values.
                                                # Note here Ux0_2 (final out) is used instead of Ux0_2_STEP3.
                                                ∂Sx_2scal = Array(Diagonal(∂Sx_2 .* inv_exp.(2 .*Sx_2, 1, 1e-3)))
