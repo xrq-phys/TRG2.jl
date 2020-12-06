@@ -65,6 +65,13 @@ bond_merge!(Ux0::Array{ElType, 3},
     Ux0, Ux1, Uy0, Uy1
 end
 
+svds_(A; nsv=6, ncv=nsv*2, tol=0.0) = begin
+    (U, s, V), = svds(A, nsv=ncv, tol=tol)
+    nsv < length(s) || (nsv = length(s))
+
+    (U[:, 1:nsv], s[1:nsv], V[:, 1:nsv]), (U, s, V)
+end
+
 bond_trg(Ux0::Array{ElType, 3},
          Ux1::Array{ElType, 3},
          Uy0::Array{ElType, 3},
@@ -101,6 +108,8 @@ bond_trg(Ux0::Array{ElType, 3},
             Sref = Sx_2
             χcut = χd*χr
         end
+        infox = nothing
+        infoy = nothing
     else
         _, _, χd = size(Uy1)
         _, _, χr = size(Ux1)
@@ -110,7 +119,7 @@ bond_trg(Ux0::Array{ElType, 3},
         Q = zeros(size(Ux0)[1:2]...)
 
         # TODO: conj missing.
-        (Ux0_2, Sx_2, Ux1_2), = svds(
+        (Ux0_2, Sx_2, Ux1_2), infox = svds_(
             LinearMap{ElType}(v -> begin
                                   M = reshape(v, (χu, χl))
                                   @tensor M2[bu, bd] := Uy0[br, bd, u] * (Ux0[bu, br, l] * M[u, l])
@@ -134,7 +143,7 @@ bond_trg(Ux0::Array{ElType, 3},
                                   vec(M)
                               end, χd*χr, χu*χl),
             nsv=χcut, tol=2e-4)
-        (Uy0_2, Sy_2, Uy1_2), = svds(
+        (Uy0_2, Sy_2, Uy1_2), infoy = svds_(
             LinearMap{ElType}(v -> begin
                                   M = reshape(v, (χr, χu))
                                   @tensor M2[bl, br] := Ux1[bd, bl, r] * (Uy0[br, bd, u] * M[r, u])
@@ -173,7 +182,7 @@ bond_trg(Ux0::Array{ElType, 3},
     Uy0_2 = reshape(Uy0_2, (χl, χd, χcut))
     Uy1_2 = reshape(Uy1_2, (χr, χu, χcut))
 
-    Zcll, Zcur, Ux0_2, Ux1_2, Uy0_2, Uy1_2, Sx_outer, Sy_outer, Sx_2, Sy_2, Sref
+    Zcll, Zcur, Ux0_2, Ux1_2, Uy0_2, Uy1_2, Sx_outer, Sy_outer, Sx_2, Sy_2, Sref, infox, infoy
 
 end
 
