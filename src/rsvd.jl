@@ -2,19 +2,12 @@
 #
 using LinearAlgebra
 
-rand_orth(m::Integer,
-          n::Integer) = begin
-    m > n || throw(ArgumentError("This routine generates column-orthogonal matrices. m > n requried."))
-    U, _, _ = svd(rand(m, n))
-    U
-end
-
 lsvd(A; nsv=6, ncv=2*nsv) = begin
     m, n = size(A)
     ncv < min(m, n) || (ncv = min(m, n))
     nsv < ncv || throw(ArgumentError("Number of SV requested is too large."))
 
-    Ql = rand_orth(m, ncv)
+    Ql, = svd(Array(A*rand(n, ncv)))
     dAr = Array(Ql'A)
     Ur, sr, Vr = svd(dAr)
 
@@ -27,7 +20,7 @@ rsvd(A; nsv=6, ncv=2*nsv) = begin
     ncv < min(m, n) || (ncv = min(m, n))
     nsv < ncv || throw(ArgumentError("Number of SV requested is too large."))
 
-    Qr = rand_orth(n, ncv)
+    Qr, = svd(Array(A'rand(m, ncv)))
     dAl = Array(A*Qr)
     Ul, sl, Vl = svd(dAl)
 
