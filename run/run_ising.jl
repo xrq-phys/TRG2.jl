@@ -107,11 +107,12 @@ for i = 1:40
             Uy0_2, Uy1_2,
             Sx_in, Sy_in,
             Sx_2, Sy_2,
-            So) = TRG2.bond_trg(Ux0, Array(Ux1),
-                                Uy0, Array(Uy1),
-                                Sx,
-                                Sy,
-                                χc);
+            So,
+            infox, infoy) = TRG2.bond_trg(Ux0, Array(Ux1),
+                                          Uy0, Array(Uy1),
+                                          Sx,
+                                          Sy,
+                                          χc);
 
     # Isometric marks.
     umark = copy(vec(Ux0_2[1:10, 1:10, 1:10]))
@@ -185,7 +186,9 @@ for i = 1:40
                                                                            Uy1_2_STEP3,
                                                                            Sx_2,
                                                                            Sy_2,
-                                                                           Zcur)
+                                                                           Zcur,
+                                                                           infox,
+                                                                           infoy)
                                                # Cast value mask to avoid numerical "bomb".
                                                ∂Ux0_2 .*= (x -> 1-exp(-x/1e-3)).(Ux0_2)
                                                ∂Ux1_2 .*= (x -> 1-exp(-x/1e-3)).(Ux1_2)
