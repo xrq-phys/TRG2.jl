@@ -237,7 +237,7 @@ for i = 1:40
 
     # Compute 1-D transfer matrix.
     begin
-        @tensor M1[bd, bl, bu, br] := Uy0[br, bd, u] * Diagonal(Sy*Zcur)[u, l] * Uy1[bl, bu, l]
+        @tensor M1[bd, bl, bu, br] := Uy0[br, bd, u] * Diagonal(Sy*Zcur)[u, d] * Uy1[bl, bu, d]
         χbd, χbl, χbu, χbr = size(M1)
         _, _, χxc = size(Ux0)
         M1 = reshape(M1, (χbd*χbl, χbu*χbr))
