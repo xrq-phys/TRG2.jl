@@ -65,7 +65,8 @@ for i = 1:40
        /   \
       (S)  (S)
      =#
-    calc_critical_from_∂ = i > 10 && i < 13
+    calc_critical_from_∂ = i ≥ 5 && i < 8
+    calc_critical_from_∂_trad = i ≥ 0 && i < 20
 
     # Rescale weighted external bonds.
     if calc_critical_from_∂
@@ -242,10 +243,24 @@ for i = 1:40
         _, _, χxc = size(Ux0)
         M1 = reshape(M1, (χbd*χbl, χbu*χbr))
         M1 = reshape(Ux1, (χbd*χbl, χxc))' * M1 * reshape(Ux0, (χbu*χbr, χxc))
-        lmul!(Diagonal(sqrt.(Sx*Zcur)), M1)
-        rmul!(M1, Diagonal(sqrt.(Sx*Zcur)))
-        _, SM1, _ = svd(M1)
-        @show SM1
+        SSx = Diagonal(sqrt.(Sx*Zcur))
+        lmul!(SSx, M1)
+        rmul!(M1, SSx)
+
+        SM1, _ = eigs(M1, nev=9, ritzvec=false)
+        @show real.(SM1)
+        @show imag.(SM1)
+
+        if calc_critical_from_∂_trad
+            # TODO: Use LinearMap.
+            @tensor T1[u, l, d, r] := Uy0[br, bd, u] * Ux0[bu, br, l] * Uy1[bl, bu, d] * Ux1[bd, bl, r]
+            @tensor M2[l, L, r, R] := T1[u, l, d, r] * Diagonal(Sy*Zcur)[u, U] * T1[D, L, U, R] * Diagonal(Sy*Zcur)[d, D]
+            @tensor M2[l, L, r, R] := M2[l0, L0, r0, R0] * SSx[l0, l] * SSx[L0, L] * SSx[r0, r] * SSx[R0, R]
+
+            SM2, _ = eigs(reshape(M2, (χxc^2, χxc^2)), nev=9, ritzvec=false)
+            @show real.(SM2)
+            @show imag.(SM2)
+        end
     end
 
     # Print
