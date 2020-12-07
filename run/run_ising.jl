@@ -186,11 +186,6 @@ for i = 1:40
                                                                            Sx_2,
                                                                            Sy_2,
                                                                            Zcur)
-                                               # Cast value mask to avoid numerical "bomb".
-                                               ∂Ux0_2 .*= (x -> 1-exp(-x/1e-3)).(Ux0_2)
-                                               ∂Ux1_2 .*= (x -> 1-exp(-x/1e-3)).(Ux1_2)
-                                               ∂Uy0_2 .*= (x -> 1-exp(-x/1e-3)).(Uy0_2)
-                                               ∂Uy1_2 .*= (x -> 1-exp(-x/1e-3)).(Uy1_2)
 
                                                # Transfer singular values.
                                                # Note here Ux0_2 (final out) is used instead of Ux0_2_STEP3.

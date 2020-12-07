@@ -100,7 +100,7 @@ bond_trg_derivative(Ux0_s::Array{ElType, 3}, ∂Ux0_s::Array{ElType, 3}, # << Th
         Fij = [if i == j
                    0.0
                else
-                   1.0 / (Sx_2[j]^2 - Sx_2[i]^2)
+                   safercp(Sx_2[j]^2 - Sx_2[i]^2, 1.0, 1e-1, 1e-2)
                end for i=1:χc, j=1:χc]
         UdAVSx = UdAVx * Diagonal(Sx_2)
         SUdAVx = Diagonal(Sx_2) * UdAVx
@@ -150,7 +150,7 @@ bond_trg_derivative(Ux0_s::Array{ElType, 3}, ∂Ux0_s::Array{ElType, 3}, # << Th
         Fij = [if i == j
                    0.0
                else
-                   1.0 / (Sy_2[j]^2 - Sy_2[i]^2)
+                   safercp(Sy_2[j]^2 - Sy_2[i]^2, 1.0, 1e-1, 1e-2)
                end for i=1:χc, j=1:χc]
         UdAVSy = UdAVy * Diagonal(Sy_2)
         SUdAVy = Diagonal(Sy_2) * UdAVy
