@@ -134,3 +134,5 @@ bond_trg_derivative(Ux0_s::Array{ElType, 3}, ∂Ux0_s::Array{ElType, 3}, # << Th
      ∂Sy)
 end
 
+include("dsvd.jl")
+
