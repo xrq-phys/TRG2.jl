@@ -96,7 +96,9 @@ bond_trg_derivative(Ux0_s::Array{ElType, 3}, ∂Ux0_s::Array{ElType, 3}, # << Th
 
     # Ux-part, diagonal part.
     begin
-        local UdAVx = Ux0_2isom'spmm(∂Tx, Ux1_2isom)
+        local dAVx = spmm(∂Tx, Ux1_2isom)
+        local dAUx = spmm(∂Tx',Ux0_2isom)
+        local UdAVx = Ux0_2isom'dAVx
         local Fij, UdAVSx, SUdAVx, US2x, VS2x, ∂LHS_ΓUx, ∂ΓUx, ∂LHS_ΠVx, ∂ΠVx
         ∂Sx = diag(UdAVx)[1:χs]
         Fij = [if i == j
@@ -106,13 +108,15 @@ bond_trg_derivative(Ux0_s::Array{ElType, 3}, ∂Ux0_s::Array{ElType, 3}, # << Th
                end for i=1:χc, j=1:χc]
         UdAVSx = UdAVx * Diagonal(Sx_2ext)
         SUdAVx = Diagonal(Sx_2ext) * UdAVx
-        ∂Ux0_2iso = Ux0_2isom * (Fij .*(UdAVSx + UdAVSx'))[:, 1:χs]
-        ∂Ux1_2iso = Ux1_2isom * (Fij .*(SUdAVx + SUdAVx'))[:, 1:χs]
+        ∂Ux0_2iso = Ux0_2isom * (Fij .*(UdAVSx + UdAVSx'))[:, 1:χs] + (dAVx - Ux0_2isom * UdAVx) * Diagonal(safercp.(Sx_2ext))[:, 1:χs]
+        ∂Ux1_2iso = Ux1_2isom * (Fij .*(SUdAVx + SUdAVx'))[:, 1:χs] + (dAUx - Ux1_2isom * UdAVx')* Diagonal(safercp.(Sx_2ext))[:, 1:χs]
     end
 
     # Uy-part, diagonal part.
     begin
-        local UdAVy = Uy0_2isom'spmm(∂Ty, Uy1_2isom)
+        local dAVy = spmm(∂Ty, Uy1_2isom)
+        local dAUy = spmm(∂Ty',Uy0_2isom)
+        local UdAVy = Uy0_2isom'dAVy
         local Fij, UdAVSy, SUdAVy, US2y, VS2y, ∂LHS_ΓUy, ∂ΓUy, ∂LHS_ΠVy, ∂ΠVy
         ∂Sy = diag(UdAVy)[1:χs]
         Fij = [if i == j
@@ -122,8 +126,8 @@ bond_trg_derivative(Ux0_s::Array{ElType, 3}, ∂Ux0_s::Array{ElType, 3}, # << Th
                end for i=1:χc, j=1:χc]
         UdAVSy = UdAVy * Diagonal(Sy_2ext)
         SUdAVy = Diagonal(Sy_2ext) * UdAVy
-        ∂Uy0_2iso = Uy0_2isom * (Fij .*(UdAVSy + UdAVSy'))[:, 1:χs]
-        ∂Uy1_2iso = Uy1_2isom * (Fij .*(SUdAVy + SUdAVy'))[:, 1:χs]
+        ∂Uy0_2iso = Uy0_2isom * (Fij .*(UdAVSy + UdAVSy'))[:, 1:χs] + (dAVy - Uy0_2isom * UdAVy) * Diagonal(safercp.(Sy_2ext))[:, 1:χs]
+        ∂Uy1_2iso = Uy1_2isom * (Fij .*(SUdAVy + SUdAVy'))[:, 1:χs] + (dAUy - Uy1_2isom * UdAVy')* Diagonal(safercp.(Sy_2ext))[:, 1:χs]
     end
 
     (reshape(∂Ux0_2iso, size(Ux0_2iso)),
