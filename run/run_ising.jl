@@ -15,6 +15,9 @@ global βc = log(1+sqrt(2))/2 - 5.6165040e-8;
 # global χc = 64
 # global βc = log(1+sqrt(2))/2;
 
+# global χc = 16
+# global βc = log(1+sqrt(2))/2 - 1.8e-5;
+
 Zi = TRG2.zi_2Dising(1, βc);
 Uℤ = [ 1/2^0.5 -1/2^0.5;
        1/2^0.5  1/2^0.5 ];
@@ -26,7 +29,7 @@ kill_zeros!(T) = broadcast!(x -> if abs(x)>1e-13
 
 global Ul, S0, Ur = svd(reshape(Zℤ, (4, 4)));
 global kscal = 0.5
-global nisoev = 20
+global nisoev = 9
 kill_zeros!(S0)
 
 rmul!(Ur, Diagonal(S0.^((kscal+1)/2)));
