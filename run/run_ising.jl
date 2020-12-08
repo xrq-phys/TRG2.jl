@@ -151,7 +151,8 @@ for i = 1:40
         idEndUy1 = idEndUy0+ length(Uy1_STEP1)
         # idEndSx  = idEndUy1+ length(Sx_STEP1)
         # idEndSy  = idEndSx + length(Sy_STEP1)
-        Scriti,  = eigs(LinearMap{Float64}(v -> begin
+        local iiter = 0
+        diffIsometry  = LinearMap{Float64}(v -> begin
                                                ∂Ux0 = reshape(v[         1:idEndUx0], size(Ux0_STEP1))
                                                ∂Ux1 = reshape(v[idEndUx0+1:idEndUx1], size(Ux1_STEP1))
                                                ∂Uy0 = reshape(v[idEndUx1+1:idEndUy0], size(Uy0_STEP1))
@@ -198,6 +199,8 @@ for i = 1:40
                                                @tensor ∂Ux1_2[i, j, k] += Ux1_2[i, j, K] * ∂Sx_2scal[K, k]
                                                @tensor ∂Uy0_2[i, j, k] += Uy0_2[i, j, K] * ∂Sy_2scal[K, k]
                                                @tensor ∂Uy1_2[i, j, k] += Uy1_2[i, j, K] * ∂Sy_2scal[K, k]
+                                               iiter += 1
+                                               iiter % 10 != 0 || (@info "ARPACK step $iiter.")
 
                                                # Cast sign mask to derivative.
                                                ∂Ux0_2 .*= sign.(Ux0_2) .* sign.(Ux0_STEP1)
@@ -212,8 +215,8 @@ for i = 1:40
                                            end,
                                            nothing,
                                            idEndUy1,
-                                           idEndUy1),
-                        nev=nisoev, ritzvec=false, tol=1e-2);
+                                           idEndUy1)
+        Scriti, = eigs(diffIsometry, nev=nisoev, ritzvec=false, tol=1e-6, maxiter=30);
         @show Scriti
     end
 
