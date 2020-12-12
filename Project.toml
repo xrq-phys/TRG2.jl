@@ -11,3 +11,11 @@ IterativeSolvers = "42fd0dbc-a981-5370-80f2-aaf504508153"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 LinearMaps = "7a12625a-238d-50fd-b39a-03d52299707e"
 TensorOperations = "6aa20fa7-93e2-5fca-9bc0-fbd0db3c71a2"
+
+[compat]
+julia = "1.4"
+Arpack = "0.4.0"
+ForwardDiff = "0.10.14"
+LinearMaps = "^2.0.0"
+TensorOperations = "^3.0.0"
+IterativeSolvers = "0.8.4"
