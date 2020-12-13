@@ -86,8 +86,8 @@ for i = 1:1
         TRG2.bond_scale(Ux0, Ux1, Uy0, Uy1, Sx, Sy, kscal);
 
     @tensor Tᵣ[d, r, u, l] :=
-        Uy1_2'[bl, bu, d] * Uy0_2[br, bd, u] *
-        Ux1_2'[bd, bl, r] * Ux0_2[bu, br, l]
+        Uy1'[bl, bu, d] * Uy0[br, bd, u] *
+        Ux1'[bd, bl, r] * Ux0[bu, br, l]
     writedlm("T_Z2.$i.dat", convert(Array, Tᵣ))
     # RG forward.
     global (Zcll, Zcur,
@@ -162,7 +162,6 @@ for i = 1:1
         @tensor M1[r, l] :=
             Uy1'[bl, bu, d] * Uy0[br, bd, u] * Sy[u, d] *
             Ux1'[bd, bl, r] * Ux0[bu, br, l]
-        @show M1
 
         # TRG-style √S-scaling.
         Sx_TRG = telem_exp(Sx * Zcur, 0.5)
