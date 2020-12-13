@@ -3,14 +3,21 @@ module TRG2
 using ForwardDiff
 using LinearAlgebra
 using TensorOperations
-using BliContractor
-using LinearMaps
+# using BliContractor
+# using LinearMaps
+using TensorKit
 using IterativeSolvers
 using Arpack
 
-full_svd = false
+full_svd = true
 
 inv_exp(x, kscal, tol=1e-8) = x^kscal / (x^(2*kscal) + tol)
+
+telem_opr(f, T::TensorMap) = TensorMap(f.(convert(Array, T)), domain(T), codomain(T))
+
+telem_exp(T::TensorMap, k) = telem_opr(x -> x^k, T)
+
+tdiag(T::TensorMap) = diag(convert(Array, T))
 
 fix_sign!(U::Matrix{ElType},
           S::Vector{ElType},
@@ -25,83 +32,75 @@ fix_sign!(U::Matrix{ElType},
     end
 end
 
-bond_scale!(Ux0::Array{ElType, 3},
-            Ux1::AbstractArray{ElType, 3},
-            Uy0::Array{ElType, 3},
-            Uy1::AbstractArray{ElType, 3},
-            Sx::Vector{ElType},
-            Sy::Vector{ElType},
-            kscal::Real) where {ElType<:Real} = begin
-    χo, _, χc = size(Ux0)
+bond_scale(Ux0::AbstractTensor,
+           Ux1::AbstractTensor,
+           Uy0::AbstractTensor,
+           Uy1::AbstractTensor,
+           Sx::AbstractTensorMap,
+           Sy::AbstractTensorMap,
+           kscal::Real) = begin
 
-    rmul!(reshape(Ux0, (χo^2, χc)), Diagonal(Sx.^((1+kscal)/2)))
-    rmul!(reshape(Ux1, (χo^2, χc)), Diagonal(Sx.^((1+kscal)/2)))
-    rmul!(reshape(Uy0, (χo^2, χc)), Diagonal(Sy.^((1+kscal)/2)))
-    rmul!(reshape(Uy1, (χo^2, χc)), Diagonal(Sy.^((1+kscal)/2)))
-    Sx .= inv_exp.(Sx, kscal)
-    Sy .= inv_exp.(Sy, kscal)
+    # SV to be obsorbed.
+    Sx_int = telem_exp(Sx, ((1+kscal)/2))
+    Sy_int = telem_exp(Sy, ((1+kscal)/2))
+    # SV to be left outside.
+    Sx_ext = telem_opr(x -> inv_exp(x, kscal), Sx)
+    Sy_ext = telem_opr(x -> inv_exp(x, kscal), Sy)
 
+    @tensor Ux0[o1, o2, x] := Ux0[o1, o2, X] * Sx_int[X, x]
+    @tensor Ux1[o1, o2, x] := Ux1[o1, o2, X] * Sx_int[X, x]
+    @tensor Uy0[o1, o2, x] := Uy0[o1, o2, X] * Sy_int[X, x]
+    @tensor Uy1[o1, o2, x] := Uy1[o1, o2, X] * Sy_int[X, x]
+
+    # Return values are necessary now.
     Ux0, Ux1, Uy0, Uy1, Sx, Sy
 end
 
-bond_merge!(Ux0::Array{ElType, 3},
-            Ux1::AbstractArray{ElType, 3},
-            Uy0::Array{ElType, 3},
-            Uy1::AbstractArray{ElType, 3},
-            Sx_inner::Vector{ElType},
-            Sy_inner::Vector{ElType}) where {ElType<:Real} = begin
+bond_merge(Ux0::AbstractTensor,
+           Ux1::AbstractTensor,
+           Uy0::AbstractTensor,
+           Uy1::AbstractTensor,
+           Sx_inner::AbstractTensorMap,
+           Sy_inner::AbstractTensorMap) = begin
 
     # Merge S.
-    ((U, S) -> begin
-         χy, χx, χk = size(U)
-         U = reshape(U, (χy, χx*χk))
-         if ndims(S) == 2
-             mul!(U, S, copy(U))
-         elseif ndims(S) == 1
-             lmul!(Diagonal(S), U)
-         end
-         nothing
-     end).([Ux0, Uy0, Ux1, Uy1], [Sy_inner, Sx_inner, Sy_inner, Sx_inner])
+    @tensor Ux0[o1, o2, x] := Sy_inner[o1, O1] * Ux0[O1, o2, x]
+    @tensor Uy0[o1, o2, x] := Sx_inner[O1, o1] * Uy0[O1, o2, x]
+    @tensor Ux1[o1, o2, x] := Sy_inner[o1, O1] * Ux1[O1, o2, x]
+    @tensor Uy1[o1, o2, x] := Sx_inner[O1, o1] * Uy1[O1, o2, x]
+
+    # Return all.
     Ux0, Ux1, Uy0, Uy1
 end
 
-bond_trg(Ux0::Array{ElType, 3},
-         Ux1::Array{ElType, 3},
-         Uy0::Array{ElType, 3},
-         Uy1::Array{ElType, 3},
-         Sx_outer::Vector{ElType},
-         Sy_outer::Vector{ElType},
-         χcut::Integer) where {ElType<:Real} = begin
+bond_trg(Ux0::AbstractTensor,
+         Ux1::AbstractTensor,
+         Uy0::AbstractTensor,
+         Uy1::AbstractTensor,
+         Sx_outer::AbstractTensorMap,
+         Sy_outer::AbstractTensorMap,
+         χcut::Integer) = begin
 
     # Compute partition function - way 1.
-    χy, χx, χk = size(Ux0)
-    Ux0_sc = reshape(reshape(Ux0, (χy*χx, χk)) * Diagonal(Sx_outer), (χy, χx, χk))
-    Uy0_sc = reshape(reshape(Uy0, (χy*χx, χk)) * Diagonal(Sy_outer), (χy, χx, χk))
-    Zcll = @tensor (Ux0_sc[U, L, x] * Ux1[D, R, x]) * (Uy0_sc[L, D, y] * Uy1[R, U, y])
+    @tensor Zcll =
+        Uy1'[bl, bu, d] * Uy0[br, bd, u] * Sy_outer[u, d] *
+        Ux1'[bd, bl, r] * Ux0[bu, br, l] * Sx_outer[l, r]
 
-    if full_svd || size(Ux0)[3]^2 ≤ χcut + 2
-        # TODO: conj missing.
-        @tensor T[d, r, u, l] := Uy1[bl, bu, d] * Ux1[bd, bl, r] * Uy0[br, bd, u] * Ux0[bu, br, l]
-        χd, χr, χu, χl = size(T)
-        Ux0_2, Sx_2, Ux1_2 = svd(reshape(T, (χd*χr, χu*χl)))
-        Uy0_2, Sy_2, Uy1_2 = svd(reshape(permutedims(T, (4, 1, 2, 3)), (χl*χd, χr*χu)))
+    # if full_svd || size(Ux0)[3]^2 ≤ χcut + 2
+        @tensor T[d, r, u, l] :=
+            Uy1'[bl, bu, d] * Uy0[br, bd, u] *
+            Ux1'[bd, bl, r] * Ux0[bu, br, l]
+        Ux0_2, Sx_2, Ux1t_2 = tsvd(T, (1, 2), (3, 4), trunc=truncdim(χcut))
+        Uy0_2, Sy_2, Uy1t_2 = tsvd(T, (4, 1), (2, 3), trunc=truncdim(χcut))
+        # Operate on codomain.
+        # This is more intuitive for TRG applications.
+        Ux0_2 = permute(Ux0_2, (1, 2, 3))
+        Uy0_2 = permute(Uy0_2, (1, 2, 3))
+        Ux1_2 = permute(Ux1t_2', (1, 2, 3))
+        Uy1_2 = permute(Uy1t_2', (1, 2, 3))
 
-        # Truncate
-        if χd*χr > χcut
-            Ux0_2 = Ux0_2[:, 1:χcut]
-            Ux1_2 = Ux1_2[:, 1:χcut]
-            Uy0_2 = Uy0_2[:, 1:χcut]
-            Uy1_2 = Uy1_2[:, 1:χcut]
-
-            # Reference S.
-            Sref = Sx_2
-            Sx_2 = Sx_2[1:χcut]
-            Sy_2 = Sy_2[1:χcut]
-        else
-            Sref = Sx_2
-            χcut = χd*χr
-        end
-    else
+    #= else
+        error("Sparse method unsupported by upstream at the moment. Waiting for Jutho's new masterpiece.")
         _, _, χd = size(Uy1)
         _, _, χr = size(Ux1)
         _, _, χu = size(Uy0)
@@ -161,39 +160,17 @@ bond_trg(Ux0::Array{ElType, 3},
         # fix_sign!(Ux0_2, Sx_2, Ux1_2)
         # fix_sign!(Uy0_2, Sy_2, Uy1_2)
 
-        Sref = [Sx_2; zeros(χl*χd)]
-    end
+    end =#
     # Do not compute partition function - way 2.
-    Zcur = Sx_2[1]
-    Sx_2 ./= Zcur
-    Sy_2 ./= Zcur
+    Zcur = convert(Array, Sx_2)[1]
+    Sx_2 = Sx_2 / Zcur
+    Sy_2 = Sy_2 / Zcur
 
-    Ux0_2 = reshape(Ux0_2, (χd, χr, χcut))
-    Ux1_2 = reshape(Ux1_2, (χu, χl, χcut))
-    Uy0_2 = reshape(Uy0_2, (χl, χd, χcut))
-    Uy1_2 = reshape(Uy1_2, (χr, χu, χcut))
-
-    Zcll, Zcur, Ux0_2, Ux1_2, Uy0_2, Uy1_2, Sx_outer, Sy_outer, Sx_2, Sy_2, Sref
+    Zcll, Zcur, Ux0_2, Ux1_2, Uy0_2, Uy1_2, Sx_outer, Sy_outer, Sx_2, Sy_2
 
 end
 
-gauge_u(Ucur::Array{ElType, 3},
-        Uref::Array{ElType, 3}) where {ElType<:Real} = begin
-    
-    # Vertical direction.
-    @tensor Uyenv[i, I] := Ucur[i, j, k] * conj(Uref[I, j, k])
-    Uy, sy, Vy = svd(Uyenv)
-    Uytrans = Vy * Uy'
-
-    # Horizontal direction.
-    @tensor Uxenv[j, J] := Ucur[i, j, k] * conj(Uref[i, J, k])
-    Ux, sx, Vx = svd(Uxenv)
-    Uxtrans = Vx * Ux'
-
-    Uytrans, Uxtrans
-end
-
-include("derivative.jl")
+# include("derivative.jl")
 include("ising.jl")
 
 end
