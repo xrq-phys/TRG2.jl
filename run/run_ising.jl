@@ -4,6 +4,7 @@ using LinearAlgebra
 using TensorOperations
 using LinearMaps
 using Arpack
+using DelimitedFiles
 include("run_disometry.jl")
 
 global χc = 40
@@ -78,7 +79,8 @@ for i = 1:40
        /   \
       (S)  (S)
      =#
-    calc_critical_from_∂ = i ≥ 5 && i < 8
+    calc_critical_from_∂ = false # i ≥ 5 && i < 8
+    calc_critical_from_∂_simp = i ≥ 3 && i < 8
     calc_critical_from_∂_trad = i ≥ 0 && i < 20
 
     # Rescale weighted external bonds.
@@ -92,6 +94,11 @@ for i = 1:40
         global Sy_STEP1 = copy(Sy)
     end
     TRG2.bond_scale!(Ux0, Ux1, Uy0, Uy1, Sx, Sy, kscal);
+    if calc_critical_from_∂_simp
+        global T_STEP2
+        @tensor T_STEP2[d, r, u, l] := Uy1[bl, bu, d] * Ux1[bd, bl, r] * Uy0[br, bd, u] * Ux0[bu, br, l]
+        writedlm("T.$i.dat", T_STEP2)
+    end
 
     # RG forward.
     if calc_critical_from_∂
@@ -121,7 +128,7 @@ for i = 1:40
 
     # Weighted external bonds becomes inner now.
     # Merge.
-    if calc_critical_from_∂
+    if calc_critical_from_∂ || calc_critical_from_∂_simp
         global Ux0_2_STEP3 = copy(Ux0_2)
         global Ux1_2_STEP3 = copy(Ux1_2)
         global Uy0_2_STEP3 = copy(Uy0_2)
@@ -144,8 +151,53 @@ for i = 1:40
         Uy1_2 .*= sign.(Uy1_2) .* sign.(Uy1)
     end =#
 
+    # Simplified computation of scaling dimension
+    if calc_critical_from_∂_simp
+        global Scriti
+        local diffIsometry
+        local T_2
+        # Scale `U`s first.
+        local Ux0_E, Ux0ᵀQ #<< This `ᵀ` indicates its legs arranged in CW instead of CCW.
+        local Uy0_E, Uy1_E
+        @tensor Ux0_E[o1, o2, x] := Ux0_2_STEP3[o1, o2, X] * Diagonal(Sy_2.^((1+kscal)/2))[X, x]
+        @tensor Ux0ᵀQ[o1, o2, x] := Ux0_2_STEP3[o1, o2, X] * Diagonal(inv_exp.(Sy_2, (1-kscal)/2))[X, x]
+        @tensor Uy0_E[o1, o2, x] := Uy0_2_STEP3[o1, o2, X] * Diagonal(Sy_2.^((1+kscal)/2))[X, x]
+        @tensor Uy1_E[o1, o2, x] := Uy1_2_STEP3[o1, o2, X] * Diagonal(Sy_2.^((1+kscal)/2))[X, x]
+
+        # Absorb inner bond weights.
+        local Ux0_F, Uy0_F, Uy1_F
+        @tensor Ux0_F[Br, Bd, x] := Diagonal(Sy_in)[Br, BR] *(Diagonal(Sx_in)[Bd, BD] * Ux0_E[BR, BD, x])
+        @tensor Uy0_F[Bd, Bl, x] := Diagonal(Sy_in)[Bl, BL] * Uy0_E[Bd, BL, x]
+        @tensor Uy1_F[Bu, Br, x] := Diagonal(Sx_in)[Bu, BU] * Uy1_E[BU, Br, x]
+
+        local iiter = 0
+        diffIsometry = LinearMap{Float64}(v -> begin
+                                              dT = reshape(v, (χc, χc, χc, χc))
+                                              # TODO: Add conj.
+                                              @tensor dUx1[Bl, Bu, Eu] := dT[d, r, Bl, Bu] * Ux0ᵀQ[d, r, Eu]
+                                              @tensor dT2[d, r, u, l] :=
+                                                  (Uy1_F[Bu, Br, d] *  dUx1[Bl, Bu, r]) *
+                                                  (Uy0_F[Bd, Bl, u] * Ux0_F[Br, Bd, l])
+
+                                              iiter += 1
+                                              iiter % 10 != 0 || (@info "ARPACK step $iiter.")
+                                              vec(dT2)
+                                          end,
+                                          nothing,
+                                          χc^4,
+                                          χc^4)
+        T_2 = Array(diffIsometry * vec(T_STEP2))
+        writedlm("T2.$i.dat", reshape(T_2, size(T_STEP2)))
+        Scriti, _ = eigs(LinearMap{Float64}(v -> begin
+                                                w = Array(diffIsometry * v)
+                                                w .* sign.(T_2) .* sign.(vec(T_STEP2))
+                                            end, nothing, χc^4, χc^4), nev=nisoev, ritzvec=false, tol=1e-3, maxiter=30);
+        @show Scriti
+    end
+
     if calc_critical_from_∂
         global Scriti
+        local diffIsometry
         # Vectorize several objects.
         idEndUx0 = length(Ux0_STEP1)
         idEndUx1 = idEndUx0+ length(Ux1_STEP1)
