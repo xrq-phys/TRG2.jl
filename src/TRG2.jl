@@ -41,8 +41,8 @@ bond_scale(Ux0::AbstractTensor,
            kscal::Real) = begin
 
     # SV to be obsorbed.
-    Sx_int = telem_exp(Sx, ((1+kscal)/2))
-    Sy_int = telem_exp(Sy, ((1+kscal)/2))
+    Sx_int = telem_exp(Sx, (1+kscal)/2)
+    Sy_int = telem_exp(Sy, (1+kscal)/2)
     # SV to be left outside.
     Sx_ext = telem_opr(x -> inv_exp(x, kscal), Sx)
     Sy_ext = telem_opr(x -> inv_exp(x, kscal), Sy)

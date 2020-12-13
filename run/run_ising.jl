@@ -36,9 +36,17 @@ global Ud = permute(Udt', (1, 2, 3))
 global kscal = 0.5
 global nisoev = 20
 
-@tensor Ur[o1, o2, x] := Ur[o1, o2, X] * telem_exp(S0, (kscal+1)/2)[X, x]
-@tensor Ul[o1, o2, x] := Ul[o1, o2, X] * telem_exp(S0, (kscal+1)/2)[X, x]
-global S0b = telem_opr(x -> inv_exp(x, kscal), S0)
+S0i = telem_exp(S0, (kscal+1)/2)
+@tensor Ur[o1, o2, x] := Ur[o1, o2, X] * S0i[X, x]
+@tensor Ul[o1, o2, x] := Ul[o1, o2, X] * S0i[X, x]
+@tensor Uu[o1, o2, x] := Uu[o1, o2, X] * S0i[X, x]
+@tensor Ud[o1, o2, x] := Ud[o1, o2, X] * S0i[X, x]
+global S0x = telem_opr(x -> inv_exp(x, kscal), S0)
+global S0y = copy(S0x)
+@tensor Tᵣ0[d, r, u, l] :=
+    Ud'[bl, bu, d] * Uu[br, bd, u] *
+    Ur'[bd, bl, r] * Ul[bu, br, l]
+writedlm("T_Z2.0.dat", convert(Array, Tᵣ0))
 
 begin
     global (Zcll, Zcur,
@@ -48,14 +56,15 @@ begin
             Sx, Sy) =
         TRG2.bond_trg(Ul, Ur,
                       Uu, Ud,
-                      S0b,
-                      S0b,
+                      S0x,
+                      S0y,
                       χc);
     Ux0, Ux1, Uy0, Uy1 =
         TRG2.bond_merge(Ux0, Ux1,
                         Uy0, Uy1,
                         Sx_in,
                         Sy_in);
+    @show (0, Zcll, Zcur)
 end
 
 global logSx = [tdiag(Sx); zeros(χc - dim(codomain(Sx)))];
