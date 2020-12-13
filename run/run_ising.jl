@@ -6,11 +6,13 @@ using LinearMaps
 using Arpack
 include("run_disometry.jl")
 
+# global βc = 0.6
+# @info "Low-temperature phase."
+
 global χc = 40
 # [ -5.0153000e-8, -5.0153001e-8 ]
 # [ -5.6165040e-8, -5.6165050e-8 ]
 global βc = log(1+sqrt(2))/2 - 5.6165040e-8;
-# @info "High-temperature phase."
 
 # global χc = 64
 # global βc = log(1+sqrt(2))/2;
