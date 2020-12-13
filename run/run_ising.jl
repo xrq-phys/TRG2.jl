@@ -61,7 +61,6 @@ global logSx = [Sx; zeros(χc - length(Sx))];
 global logSy = [Sy; zeros(χc - length(Sx))];
 global logUx = zeros(1000); # vec(Ux0[1:4, 1:4, 1:8]);
 global logFb = [0.0];
-TRG2.bond_scale!(Ux0, Ux1, Uy0, Uy1, Sx, Sy, kscal);
 
 # Other loggings.
 # global logSo = [So; zeros(χc^2 - length(So))];
