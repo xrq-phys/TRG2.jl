@@ -10,13 +10,14 @@ using DelimitedFiles
 # global βc = 0.6
 # @info "Low-temperature phase."
 
-global χc = 40
-# [ -5.0153000e-8, -5.0153001e-8 ]
-# [ -5.6165040e-8, -5.6165050e-8 ]
-global βc = log(1+sqrt(2))/2 - 5.6165040e-8;
+# global χc = 40
+# global βc = log(1+sqrt(2))/2;
 
 # global χc = 64
 # global βc = log(1+sqrt(2))/2;
+
+global χc = 16
+global βc = log(1+sqrt(2))/2 - 1.6e-5;
 
 Zi = TRG2.zi_2Dising(1, βc);
 Uℤ = [ 1/2^0.5 -1/2^0.5;
@@ -76,7 +77,7 @@ global logFb = [0.0];
 global logZ = log(Zcur) / 2;
 global logZll = [Zcll];
 
-for i = 1:1
+for i = 1:40
     #= Loop body: "invariants"
       Ux0, Ux1, Uy0, Uy1, Sx, Sx =>
       (S)  (S)
