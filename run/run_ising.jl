@@ -97,7 +97,10 @@ for i = 1:40
     if calc_critical_from_∂_simp
         global T_STEP2
         @tensor T_STEP2[d, r, u, l] := Uy1[bl, bu, d] * Ux1[bd, bl, r] * Uy0[br, bd, u] * Ux0[bu, br, l]
-        writedlm("T.$i.dat", T_STEP2)
+        @tensor T_1[d, r, u, l] := T_STEP2[D, R, U, L] *
+            Diagonal(Sy)[D, d] * Diagonal(Sx)[R, r] *
+            Diagonal(Sy)[U, u] * Diagonal(Sx)[L, l]
+        writedlm("T.$i.dat", T_1)
     end
 
     # RG forward.
@@ -181,6 +184,11 @@ for i = 1:40
         local iiter = 0
         diffIsometry = LinearMap{Float64}(v -> begin
                                               dT = reshape(v, (χc, χc, χc, χc))
+                                              @tensor dT[d, r, u, l] := dT[D, R, U, L] *
+                                                  Diagonal(inv_exp.(Sx_in, 1))[d, D] *
+                                                  Diagonal(inv_exp.(Sx_in, 1))[u, U] *
+                                                  Diagonal(inv_exp.(Sy_in, 1))[r, R] *
+                                                  Diagonal(inv_exp.(Sy_in, 1))[l, L]
                                               # TODO: Add conj.
                                               @tensor dUx0_E[Br, Bd, El] := dT[Br, Bd, u, l] * Ux1ᵀQ[u, l, El]
                                               @tensor dUx1_E[Bl, Bu, Er] := dT[d, r, Bl, Bu] * Ux0ᵀQ[d, r, Er]
@@ -200,6 +208,11 @@ for i = 1:40
                                                   #  ( Uy0_E[Bd, Bl, u] *dUx0_E[Br, Bd, l])) +
                                                   # ((dUy1_E[Bu, Br, d] * Ux1_E[Bl, Bu, r]) *
                                                   #  ( Uy0_E[Bd, Bl, u] * Ux0_E[Br, Bd, l]))
+                                              @tensor dT2[d, r, u, l] := dT2[D, R, U, L] *
+                                                  Diagonal(inv_exp.(Sx_2, kscal))[d, D] *
+                                                  Diagonal(inv_exp.(Sx_2, kscal))[u, U] *
+                                                  Diagonal(inv_exp.(Sy_2, kscal))[r, R] *
+                                                  Diagonal(inv_exp.(Sy_2, kscal))[l, L] * Zcur^(-1)
 
                                               iiter += 1
                                               iiter % 10 != 0 || (@info "ARPACK step $iiter.")
@@ -208,7 +221,10 @@ for i = 1:40
                                           nothing,
                                           χc^4,
                                           χc^4)
-        T_2 = Array(diffIsometry * vec(T_STEP2))
+        @tensor T_1[d, r, u, l] := T_STEP2[D, R, U, L] *
+            Diagonal(Sy_in)[D, d] * Diagonal(Sx_in)[R, r] *
+            Diagonal(Sy_in)[U, u] * Diagonal(Sx_in)[L, l]
+        T_2 = Array(diffIsometry * vec(T_1))
         writedlm("T2.$i.dat", reshape(T_2, size(T_STEP2)))
         Scriti, _ = eigs(LinearMap{Float64}(v -> begin
                                                 w = Array(diffIsometry * v)
