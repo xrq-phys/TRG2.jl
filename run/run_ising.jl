@@ -162,7 +162,6 @@ for i = 1:40
         # Scale `U`s first.
         local Ux0_E, Ux1_E
         local Uy0_E, Uy1_E
-        # TODO: Add-back the Zcur constant factor.
         @tensor Ux0_E[o1, o2, x] := Ux0_2_STEP3[o1, o2, X] * Diagonal(Sx_2.^((1+kscal)/2))[X, x]
         @tensor Ux1_E[o1, o2, x] := Ux1_2_STEP3[o1, o2, X] * Diagonal(Sx_2.^((1+kscal)/2))[X, x]
         @tensor Uy0_E[o1, o2, x] := Uy0_2_STEP3[o1, o2, X] * Diagonal(Sy_2.^((1+kscal)/2))[X, x]
