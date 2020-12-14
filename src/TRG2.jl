@@ -53,7 +53,7 @@ bond_scale(Ux0::AbstractTensor,
     @tensor Uy1[o1, o2, x] := Uy1[o1, o2, X] * Sy_int[X, x]
 
     # Return values are necessary now.
-    Ux0, Ux1, Uy0, Uy1, Sx, Sy
+    Ux0, Ux1, Uy0, Uy1, Sx_ext, Sy_ext
 end
 
 bond_merge(Ux0::AbstractTensor,
