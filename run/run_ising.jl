@@ -230,6 +230,7 @@ for i = 1:40
                                                 w .* sign.(T_2) .* sign.(vec(T_STEP2))
                                             end, nothing, χc^4, χc^4), nev=nisoev, ritzvec=false, tol=1e-3, maxiter=30);
         @show Scriti
+        @show abs.(Scriti)
     end
 
     if calc_critical_from_∂
@@ -309,6 +310,7 @@ for i = 1:40
                                            idEndUy1)
         Scriti, = eigs(diffIsometry, nev=nisoev, ritzvec=false, tol=1e-6, maxiter=30);
         @show Scriti
+        @show abs.(Scriti)
     end
 
     # For lines that might violate invariant rule, put them into blocks
