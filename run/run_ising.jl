@@ -157,27 +157,49 @@ for i = 1:40
         local diffIsometry
         local T_2
         # Scale `U`s first.
-        local Ux0_E, Ux0ᵀQ #<< This `ᵀ` indicates its legs arranged in CW instead of CCW.
+        local Ux0_E, Ux1_E
         local Uy0_E, Uy1_E
-        @tensor Ux0_E[o1, o2, x] := Ux0_2_STEP3[o1, o2, X] * Diagonal(Sy_2.^((1+kscal)/2))[X, x]
-        @tensor Ux0ᵀQ[o1, o2, x] := Ux0_2_STEP3[o1, o2, X] * Diagonal(inv_exp.(Sy_2, (1-kscal)/2))[X, x]
+        # TODO: Add-back the Zcur constant factor.
+        @tensor Ux0_E[o1, o2, x] := Ux0_2_STEP3[o1, o2, X] * Diagonal(Sx_2.^((1+kscal)/2))[X, x]
+        @tensor Ux1_E[o1, o2, x] := Ux1_2_STEP3[o1, o2, X] * Diagonal(Sx_2.^((1+kscal)/2))[X, x]
         @tensor Uy0_E[o1, o2, x] := Uy0_2_STEP3[o1, o2, X] * Diagonal(Sy_2.^((1+kscal)/2))[X, x]
         @tensor Uy1_E[o1, o2, x] := Uy1_2_STEP3[o1, o2, X] * Diagonal(Sy_2.^((1+kscal)/2))[X, x]
 
+        local Ux0ᵀQ, Ux1ᵀQ #<< This `ᵀ` indicates its legs arranged in CW instead of CCW.
+        local Uy0ᵀQ, Uy1ᵀQ
+        @tensor Ux0ᵀQ[o1, o2, x] := Ux0_2_STEP3[o1, o2, X] * Diagonal(inv_exp.(Sx_2, (1-kscal)/2))[X, x]
+        @tensor Ux1ᵀQ[o1, o2, x] := Ux1_2_STEP3[o1, o2, X] * Diagonal(inv_exp.(Sx_2, (1-kscal)/2))[X, x]
+        @tensor Uy0ᵀQ[o1, o2, x] := Uy0_2_STEP3[o1, o2, X] * Diagonal(inv_exp.(Sy_2, (1-kscal)/2))[X, x]
+        @tensor Uy1ᵀQ[o1, o2, x] := Uy1_2_STEP3[o1, o2, X] * Diagonal(inv_exp.(Sy_2, (1-kscal)/2))[X, x]
+
         # Absorb inner bond weights.
-        local Ux0_F, Uy0_F, Uy1_F
-        @tensor Ux0_F[Br, Bd, x] := Diagonal(Sy_in)[Br, BR] *(Diagonal(Sx_in)[Bd, BD] * Ux0_E[BR, BD, x])
-        @tensor Uy0_F[Bd, Bl, x] := Diagonal(Sy_in)[Bl, BL] * Uy0_E[Bd, BL, x]
-        @tensor Uy1_F[Bu, Br, x] := Diagonal(Sx_in)[Bu, BU] * Uy1_E[BU, Br, x]
+        TRG2.bond_merge!(Ux0_E, Ux1_E,
+                         Uy0_E, Uy1_E,
+                         Sx_in,
+                         Sy_in)
 
         local iiter = 0
         diffIsometry = LinearMap{Float64}(v -> begin
                                               dT = reshape(v, (χc, χc, χc, χc))
                                               # TODO: Add conj.
-                                              @tensor dUx1[Bl, Bu, Eu] := dT[d, r, Bl, Bu] * Ux0ᵀQ[d, r, Eu]
+                                              @tensor dUx0_E[Br, Bd, El] := dT[Br, Bd, u, l] * Ux1ᵀQ[u, l, El]
+                                              @tensor dUx1_E[Bl, Bu, Er] := dT[d, r, Bl, Bu] * Ux0ᵀQ[d, r, Er]
+                                              @tensor dUy0_E[Bd, Bl, Eu] := dT[Bl, r, u, Bd] * Uy1ᵀQ[r, u, Eu]
+                                              @tensor dUy1_E[Bu, Br, Ed] := dT[d, Bu, Br, l] * Uy0ᵀQ[l, d, Ed]
+
+                                              TRG2.bond_merge!(dUx0_E, dUx1_E,
+                                                               dUy0_E, dUy1_E,
+                                                               Sx_in,
+                                                               Sy_in)
                                               @tensor dT2[d, r, u, l] :=
-                                                  (Uy1_F[Bu, Br, d] *  dUx1[Bl, Bu, r]) *
-                                                  (Uy0_F[Bd, Bl, u] * Ux0_F[Br, Bd, l])
+                                                  (( Uy1_E[Bu, Br, d] *dUx1_E[Bl, Bu, r]) *
+                                                   ( Uy0_E[Bd, Bl, u] * Ux0_E[Br, Bd, l])) +
+                                                  (( Uy1_E[Bu, Br, d] * Ux1_E[Bl, Bu, r]) *
+                                                   (dUy0_E[Bd, Bl, u] * Ux0_E[Br, Bd, l]))
+                                                  # (( Uy1_E[Bu, Br, d] * Ux1_E[Bl, Bu, r]) *
+                                                  #  ( Uy0_E[Bd, Bl, u] *dUx0_E[Br, Bd, l])) +
+                                                  # ((dUy1_E[Bu, Br, d] * Ux1_E[Bl, Bu, r]) *
+                                                  #  ( Uy0_E[Bd, Bl, u] * Ux0_E[Br, Bd, l]))
 
                                               iiter += 1
                                               iiter % 10 != 0 || (@info "ARPACK step $iiter.")
