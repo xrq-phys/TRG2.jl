@@ -65,6 +65,47 @@ bond_merge!(Ux0::Array{ElType, 3},
     Ux0, Ux1, Uy0, Uy1
 end
 
+"bTRG from 4-leg tensor."
+bond_trg(T::Array{ElType, 4},
+         Sx_outer::Vector{ElType},
+         Sy_outer::Vector{ElType},
+         χcut::Integer) where {ElType<:Real} = begin
+    χd, χr, χu, χl = size(T)
+    # Partition function (Way 1).
+    @tensor Zcll = T[d, r, u, l] *
+        Diagonal(Sx_outer)[l, r] *
+        Diagonal(Sy_outer)[u, d]
+
+    # Select SVD implementation.
+    svd_(M::AbstractMatrix{ElType}, χ) =
+        if full_svd || size(M)[1] ≤ χ + 2
+            Uful, Sful, Vful = svd(M)
+            χ_ = min(χ, length(Sful))
+            return Uful[:, 1:χ_], Sful[1:χ_], Vful[:, 1:χ_], Sful
+        else
+            (Us, Ss, Vs), = svds(M, nsv=χ)
+            return Us, Ss, Vs, missing
+        end
+
+    Ux0_2, Sx_2, Ux1_2, Sref = svd_(reshape(T, (χd*χr, χu*χl)), χcut)
+    Uy0_2, Sy_2, Uy1_2, = svd_(reshape(permutedims(T, (4, 1, 2, 3)), (χl*χd, χr*χu)),
+                               χcut)
+    χcut = length(Sx_2)
+
+    # (Way 2)
+    Zcur = Sx_2[1]
+    Sx_2 ./= Zcur
+    Sy_2 ./= Zcur
+
+    Ux0_2 = reshape(Ux0_2, (χd, χr, χcut))
+    Ux1_2 = reshape(Ux1_2, (χu, χl, χcut))
+    Uy0_2 = reshape(Uy0_2, (χl, χd, χcut))
+    Uy1_2 = reshape(Uy1_2, (χr, χu, χcut))
+
+    Zcll, Zcur, Ux0_2, Ux1_2, Uy0_2, Uy1_2, Sx_outer, Sy_outer, Sx_2, Sy_2, Sref
+end
+
+"bTRG from tensor ring."
 bond_trg(Ux0::Array{ElType, 3},
          Ux1::Array{ElType, 3},
          Uy0::Array{ElType, 3},
@@ -73,35 +114,25 @@ bond_trg(Ux0::Array{ElType, 3},
          Sy_outer::Vector{ElType},
          χcut::Integer) where {ElType<:Real} = begin
 
+    if full_svd || size(Ux0)[3]^2 ≤ χcut + 2
+        # TODO: conj missing.
+        # NOTE: conj is considered and guaranteed by TensorKit.jl in `z2-tensor` branch.
+        @tensor T[d, r, u, l] :=
+            Uy1[bl, bu, d] * Ux1[bd, bl, r] *
+            Uy0[br, bd, u] * Ux0[bu, br, l]
+        return bond_trg(T, Sx_outer, Sy_outer, χcut)
+    end
+
     # Compute partition function - way 1.
     χy, χx, χk = size(Ux0)
     Ux0_sc = reshape(reshape(Ux0, (χy*χx, χk)) * Diagonal(Sx_outer), (χy, χx, χk))
     Uy0_sc = reshape(reshape(Uy0, (χy*χx, χk)) * Diagonal(Sy_outer), (χy, χx, χk))
-    Zcll = @tensor (Ux0_sc[U, L, x] * Ux1[D, R, x]) * (Uy0_sc[L, D, y] * Uy1[R, U, y])
+    @tensor Zcll =
+        (Ux0_sc[U, L, x] * Ux1[D, R, x]) *
+        (Uy0_sc[L, D, y] * Uy1[R, U, y])
 
-    if full_svd || size(Ux0)[3]^2 ≤ χcut + 2
-        # TODO: conj missing.
-        @tensor T[d, r, u, l] := Uy1[bl, bu, d] * Ux1[bd, bl, r] * Uy0[br, bd, u] * Ux0[bu, br, l]
-        χd, χr, χu, χl = size(T)
-        Ux0_2, Sx_2, Ux1_2 = svd(reshape(T, (χd*χr, χu*χl)))
-        Uy0_2, Sy_2, Uy1_2 = svd(reshape(permutedims(T, (4, 1, 2, 3)), (χl*χd, χr*χu)))
-
-        # Truncate
-        if χd*χr > χcut
-            Ux0_2 = Ux0_2[:, 1:χcut]
-            Ux1_2 = Ux1_2[:, 1:χcut]
-            Uy0_2 = Uy0_2[:, 1:χcut]
-            Uy1_2 = Uy1_2[:, 1:χcut]
-
-            # Reference S.
-            Sref = Sx_2
-            Sx_2 = Sx_2[1:χcut]
-            Sy_2 = Sy_2[1:χcut]
-        else
-            Sref = Sx_2
-            χcut = χd*χr
-        end
-    else
+    # Sparse case.
+    begin
         _, _, χd = size(Uy1)
         _, _, χr = size(Ux1)
         _, _, χu = size(Uy0)
@@ -113,55 +144,37 @@ bond_trg(Ux0::Array{ElType, 3},
         (Ux0_2, Sx_2, Ux1_2), = svds(
             LinearMap{ElType}(v -> begin
                                   M = reshape(v, (χu, χl))
-                                  @tensor M2[bu, bd] := Uy0[br, bd, u] * (Ux0[bu, br, l] * M[u, l])
-                                  @tensor M[d, r] = Uy1[bl, bu, d] * (Ux1[bd, bl, r] * M2[bu, bd])
-                                  # contract!(Ux0, "URl", M, "ul", Utmp, "URu")
-                                  # contract!(Uy0, "RDu", Utmp, "URu", Q, "UD")
-                                  # contract!(Ux1, "DLr", Q, "UD", Utmp, "LUr")
-                                  # contract!(Uy1, "LUd", Utmp, "LUr", M, "dr")
-                                  # @tensor M[d, r] := Uy1[bl, bu, d] * Ux1[bd, bl, r] * Uy0[br, bd, u] * Ux0[bu, br, l] * M[u, l]
+                                  @tensor M[d, r] := Uy1[bl, bu, d] *(Ux1[bd, bl, r] *
+                                                                      (Uy0[br, bd, u] *
+                                                                       (Ux0[bu, br, l] * M[u, l])))
                                   vec(M)
                               end,
                               w -> begin
                                   M = reshape(w, (χd, χr))
-                                  @tensor M2[bu, bd] := Uy1[bl, bu, d] * (Ux1[bd, bl, r] * M[d, r])
-                                  @tensor M[u, l] = Uy0[br, bd, u] * (Ux0[bu, br, l] * M2[bu, bd])
-                                  # contract!(Ux1, "DLr", M, "dr", Utmp, "DLd")
-                                  # contract!(Uy1, "LUd", Utmp, "DLd", Q, "UD")
-                                  # contract!(Ux0, "URl", Q, "UD", Utmp, "RDl")
-                                  # contract!(Uy0, "RDu", Utmp, "RDl", M, "ul")
-                                  # @tensor M[u, l] := Uy1[bl, bu, d] * Ux1[bd, bl, r] * Uy0[br, bd, u] * Ux0[bu, br, l] * M[d, r]
+                                  @tensor M[u, l] := Uy1[bl, bu, d] *(Ux1[bd, bl, r] *
+                                                                      (Uy0[br, bd, u] *
+                                                                       (Ux0[bu, br, l] * M[d, r])))
                                   vec(M)
                               end, χd*χr, χu*χl),
             nsv=χcut, tol=2e-4)
         (Uy0_2, Sy_2, Uy1_2), = svds(
             LinearMap{ElType}(v -> begin
                                   M = reshape(v, (χr, χu))
-                                  @tensor M2[bl, br] := Ux1[bd, bl, r] * (Uy0[br, bd, u] * M[r, u])
-                                  @tensor M[l, d] = Uy1[bl, bu, d] * (Ux0[bu, br, l] * M2[bl, br])
-                                  # contract!(Uy0, "RDu", M, "ru", Utmp, "RDr")
-                                  # contract!(Ux1, "DLr", Utmp, "RDr", Q, "LR")
-                                  # contract!(Ux0, "URl", Q, "LR", Utmp, "LUl")
-                                  # contract!(Uy1, "LUd", Utmp, "LUl", M, "ld")
-                                  # @tensor M[l, d] := Uy1[bl, bu, d] * Ux1[bd, bl, r] * Uy0[br, bd, u] * Ux0[bu, br, l] * M[r, u]
+                                  @tensor M[l, d] := Uy1[bl, bu, d] *(Ux1[bd, bl, r] *
+                                                                      (Uy0[br, bd, u] *
+                                                                       (Ux0[bu, br, l] * M[r, u])))
                                   vec(M)
                               end,
                               w -> begin
                                   M = reshape(w, (χl, χd))
-                                  @tensor M2[bl, br] := Uy1[bl, bu, d] * (Ux0[bu, br, l] * M[l, d])
-                                  @tensor M[r, u] = Ux1[bd, bl, r] * (Uy0[br, bd, u] * M2[bl, br])
-                                  # contract!(Ux0, "URl", M, "ld", Utmp, "URd")
-                                  # contract!(Uy1, "LUd", Utmp, "URd", Q, "LR")
-                                  # contract!(Uy0, "RDu", Q, "LR", Utmp, "DLu")
-                                  # contract!(Ux1, "DLr", Utmp, "DLu", M, "ru")
-                                  # @tensor M[r, u] := Uy1[bl, bu, d] * Ux1[bd, bl, r] * Uy0[br, bd, u] * Ux0[bu, br, l] * M[l, d]
+                                  @tensor M[r, u] := Uy1[bl, bu, d] *(Ux1[bd, bl, r] *
+                                                                      (Uy0[br, bd, u] *
+                                                                       (Ux0[bu, br, l] * M[l, d])))
                                   vec(M)
                               end, χl*χd, χr*χu),
             nsv=χcut, tol=2e-4)
         # fix_sign!(Ux0_2, Sx_2, Ux1_2)
         # fix_sign!(Uy0_2, Sy_2, Uy1_2)
-
-        Sref = [Sx_2; zeros(χl*χd)]
     end
     # Do not compute partition function - way 2.
     Zcur = Sx_2[1]
@@ -173,7 +186,7 @@ bond_trg(Ux0::Array{ElType, 3},
     Uy0_2 = reshape(Uy0_2, (χl, χd, χcut))
     Uy1_2 = reshape(Uy1_2, (χr, χu, χcut))
 
-    Zcll, Zcur, Ux0_2, Ux1_2, Uy0_2, Uy1_2, Sx_outer, Sy_outer, Sx_2, Sy_2, Sref
+    Zcll, Zcur, Ux0_2, Ux1_2, Uy0_2, Uy1_2, Sx_outer, Sy_outer, Sx_2, Sy_2, missing
 
 end
 
