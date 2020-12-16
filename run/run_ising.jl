@@ -5,7 +5,7 @@ using TensorOperations
 using LinearMaps
 using Arpack
 using DelimitedFiles
-include("run_disometry.jl")
+# include("run_disometry.jl")
 
 global χc = 40
 # [ -5.0153000e-8, -5.0153001e-8 ]
@@ -79,22 +79,13 @@ for i = 1:40
        /   \
       (S)  (S)
      =#
-    calc_critical_from_∂ = false # i ≥ 5 && i < 8
     calc_critical_from_∂_simp = i ≥ 3 && i < 8
+    calc_critical_from_∂ = i ≥ 4 && i < 8
     calc_critical_from_∂_trad = i ≥ 0 && i < 20
 
     # Rescale weighted external bonds.
-    if calc_critical_from_∂
-        # Backup input for derivatives.
-        global Ux0_STEP1 = copy(Ux0)
-        global Ux1_STEP1 = copy(Ux1)
-        global Uy0_STEP1 = copy(Uy0)
-        global Uy1_STEP1 = copy(Uy1)
-        global Sx_STEP1 = copy(Sx)
-        global Sy_STEP1 = copy(Sy)
-    end
     TRG2.bond_scale!(Ux0, Ux1, Uy0, Uy1, Sx, Sy, kscal);
-    if calc_critical_from_∂_simp
+    if calc_critical_from_∂ || calc_critical_from_∂_simp
         global T_STEP2
         @tensor T_STEP2[d, r, u, l] := Uy1[bl, bu, d] * Ux1[bd, bl, r] * Uy0[br, bd, u] * Ux0[bu, br, l]
         @tensor T_1[d, r, u, l] := T_STEP2[D, R, U, L] *
@@ -104,16 +95,6 @@ for i = 1:40
     end
 
     # RG forward.
-    if calc_critical_from_∂
-        # TRG2.bond_trg is not a !-method.
-        #  not copy required.
-        global Ux0_STEP2 = Ux0
-        global Ux1_STEP2 = Ux1
-        global Uy0_STEP2 = Uy0
-        global Uy1_STEP2 = Uy1
-        global Sx_STEP2 = Sx
-        global Sy_STEP2 = Sy
-    end
     global (Zcll, Zcur,
             Ux0_2, Ux1_2,
             Uy0_2, Uy1_2,
@@ -156,7 +137,7 @@ for i = 1:40
 
     # Simplified computation of scaling dimension
     if calc_critical_from_∂_simp
-        global Scriti
+        local Scriti
         local diffIsometry
         local T_2
         # Scale `U`s first.
@@ -234,83 +215,100 @@ for i = 1:40
     end
 
     if calc_critical_from_∂
-        global Scriti
+        local ScritiAD
         local diffIsometry
-        # Vectorize several objects.
-        idEndUx0 = length(Ux0_STEP1)
-        idEndUx1 = idEndUx0+ length(Ux1_STEP1)
-        idEndUy0 = idEndUx1+ length(Uy0_STEP1)
-        idEndUy1 = idEndUy0+ length(Uy1_STEP1)
-        # idEndSx  = idEndUy1+ length(Sx_STEP1)
-        # idEndSy  = idEndSx + length(Sy_STEP1)
+        local Ux0_E = copy(Ux0_2_STEP3)
+        local Ux1_E = copy(Ux1_2_STEP3)
+        local Uy0_E = copy(Uy0_2_STEP3)
+        local Uy1_E = copy(Uy1_2_STEP3)
+
+        # Absorb inner bond weights into **unscaled** `U`s.
+        TRG2.bond_merge!(Ux0_E, Ux1_E,
+                         Uy0_E, Uy1_E,
+                         Sx_in,
+                         Sy_in)
+        # Value of central tensor.
+        @tensor T2[d, r, u, l] :=
+            ((Uy1_E[Bu, Br, d] * Ux1_E[Bl, Bu, r]) *
+             (Uy0_E[Bd, Bl, u] * Ux0_E[Br, Bd, l]))
         local iiter = 0
-        diffIsometry  = LinearMap{Float64}(v -> begin
-                                               ∂Ux0 = reshape(v[         1:idEndUx0], size(Ux0_STEP1))
-                                               ∂Ux1 = reshape(v[idEndUx0+1:idEndUx1], size(Ux1_STEP1))
-                                               ∂Uy0 = reshape(v[idEndUx1+1:idEndUy0], size(Uy0_STEP1))
-                                               ∂Uy1 = reshape(v[idEndUy0+1:idEndUy1], size(Uy1_STEP1))
-                                               ∂Sx  = zeros(size(Sx_STEP1)...)
-                                               ∂Sy  = zeros(size(Sx_STEP1)...)
-                                               # ∂Sx  = reshape(v[idEndUy1+1:idEndSx ], size(Sx_STEP1))
-                                               # ∂Sy  = reshape(v[ idEndSx+1:idEndSy ], size(Sy_STEP1))
-                                               # Compute derivative.
-                                               (∂Ux0_2, ∂Ux1_2,
-                                                ∂Uy0_2, ∂Uy1_2,
-                                                ∂Sx_2,
-                                                ∂Sy_2) = run_bond_trg_diso(# Step 1.
-                                                                           Ux0_STEP1, ∂Ux0,
-                                                                           Ux1_STEP1, ∂Ux1,
-                                                                           Uy0_STEP1, ∂Uy0,
-                                                                           Uy1_STEP1, ∂Uy1,
-                                                                           Sx_STEP1, ∂Sx,
-                                                                           Sy_STEP1, ∂Sy,
-                                                                           kscal,
-                                                                           # Step 2.
-                                                                           Ux0_STEP2,
-                                                                           Ux1_STEP2,
-                                                                           Uy0_STEP2,
-                                                                           Uy1_STEP2,
-                                                                           Sx_STEP2,
-                                                                           Sy_STEP2,
-                                                                           # Step 3.
-                                                                           Ux0_2_STEP3,
-                                                                           Ux1_2_STEP3,
-                                                                           Uy0_2_STEP3,
-                                                                           Uy1_2_STEP3,
-                                                                           Sx_2,
-                                                                           Sy_2,
-                                                                           Zcur,
-                                                                           infox,
-                                                                           infoy)
+        diffIsometry = LinearMap{Float64}(v -> begin
+                                              dT = reshape(v, (χc, χc, χc, χc))
+                                              @tensor dT[d, r, u, l] := dT[D, R, U, L] *
+                                                  Diagonal(inv_exp.(Sx_in, 1))[d, D] *
+                                                  Diagonal(inv_exp.(Sx_in, 1))[u, U] *
+                                                  Diagonal(inv_exp.(Sy_in, 1))[r, R] *
+                                                  Diagonal(inv_exp.(Sy_in, 1))[l, L]
 
-                                               # Transfer singular values.
-                                               # Note here Ux0_2 (final out) is used instead of Ux0_2_STEP3.
-                                               ∂Sx_2scal = Array(Diagonal(∂Sx_2 .* inv_exp.(2 .*Sx_2, 1, 1e-3)))
-                                               ∂Sy_2scal = Array(Diagonal(∂Sy_2 .* inv_exp.(2 .*Sy_2, 1, 1e-3)))
-                                               @tensor ∂Ux0_2[i, j, k] += Ux0_2[i, j, K] * ∂Sx_2scal[K, k]
-                                               @tensor ∂Ux1_2[i, j, k] += Ux1_2[i, j, K] * ∂Sx_2scal[K, k]
-                                               @tensor ∂Uy0_2[i, j, k] += Uy0_2[i, j, K] * ∂Sy_2scal[K, k]
-                                               @tensor ∂Uy1_2[i, j, k] += Uy1_2[i, j, K] * ∂Sy_2scal[K, k]
-                                               iiter += 1
-                                               iiter % 10 != 0 || (@info "ARPACK step $iiter.")
+                                              # Compute derivative.
+                                              (∂Ux0_2, ∂Ux1_2,
+                                               ∂Uy0_2, ∂Uy1_2,
+                                               ∂Sx_2,
+                                               ∂Sy_2) = TRG2.bond_trg_derivative(# T without S_outer.
+                                                                                 T_STEP2,
+                                                                                 dT,
+                                                                                 # Output of separations.
+                                                                                 Ux0_2_STEP3,
+                                                                                 Ux1_2_STEP3,
+                                                                                 Uy0_2_STEP3,
+                                                                                 Uy1_2_STEP3,
+                                                                                 Sx_2,
+                                                                                 Sy_2,
+                                                                                 # This info is always necessary.
+                                                                                 infox=infox,
+                                                                                 infoy=infoy)
+                                              # Merge into unscaled `∂U`s.
+                                              TRG2.bond_merge!(∂Ux0_2, ∂Ux1_2,
+                                                               ∂Uy0_2, ∂Uy1_2,
+                                                               Sx_in,
+                                                               Sy_in)
+                                              @tensor dT2[d, r, u, l] :=
+                                                  (( Uy1_E[Bu, Br, d] *∂Ux1_2[Bl, Bu, r]) *
+                                                   ( Uy0_E[Bd, Bl, u] * Ux0_E[Br, Bd, l])) +
+                                                  (( Uy1_E[Bu, Br, d] * Ux1_E[Bl, Bu, r]) *
+                                                   (∂Uy0_2[Bd, Bl, u] * Ux0_E[Br, Bd, l])) +
+                                                  (( Uy1_E[Bu, Br, d] * Ux1_E[Bl, Bu, r]) *
+                                                   ( Uy0_E[Bd, Bl, u] *∂Ux0_2[Br, Bd, l])) +
+                                                  ((∂Uy1_2[Bu, Br, d] * Ux1_E[Bl, Bu, r]) *
+                                                   ( Uy0_E[Bd, Bl, u] * Ux0_E[Br, Bd, l]))
+                                              # Both U and ∂U has their final leg unscaled.
+                                              # Here multiply the original S without exponent.
+                                              @tensor dT2[d, r, u, l] := 
+                                                  (dT2[D, R, U, L] *
+                                                      Diagonal( Sx_2)[d, D] * Diagonal( Sx_2)[u, U] *
+                                                      Diagonal( Sy_2)[r, R] * Diagonal( Sy_2)[l, L]) +
+                                                  (T2[D, R, U, L] *
+                                                      Diagonal(∂Sx_2)[d, D] * Diagonal( Sx_2)[u, U] *
+                                                      Diagonal( Sy_2)[r, R] * Diagonal( Sy_2)[l, L]) +
+                                                  (T2[D, R, U, L] *
+                                                      Diagonal( Sx_2)[d, D] * Diagonal( Sx_2)[u, U] *
+                                                      Diagonal(∂Sy_2)[r, R] * Diagonal( Sy_2)[l, L]) +
+                                                  (T2[D, R, U, L] *
+                                                      Diagonal( Sx_2)[d, D] * Diagonal(∂Sx_2)[u, U] *
+                                                      Diagonal( Sy_2)[r, R] * Diagonal( Sy_2)[l, L]) +
+                                                  (T2[D, R, U, L] *
+                                                      Diagonal( Sx_2)[d, D] * Diagonal( Sx_2)[u, U] *
+                                                      Diagonal( Sy_2)[r, R] * Diagonal(∂Sy_2)[l, L])
 
-                                               # Cast sign mask to derivative.
-                                               ∂Ux0_2 .*= sign.(Ux0_2) .* sign.(Ux0_STEP1)
-                                               ∂Ux1_2 .*= sign.(Ux1_2) .* sign.(Ux1_STEP1)
-                                               ∂Uy0_2 .*= sign.(Uy0_2) .* sign.(Uy0_STEP1)
-                                               ∂Uy1_2 .*= sign.(Uy1_2) .* sign.(Uy1_STEP1)
-                                               [vec(∂Ux0_2); vec(∂Ux1_2);
-                                                vec(∂Uy0_2); vec(∂Uy1_2)
-                                                # vec(∂Sx_2);
-                                                # vec(∂Sy_2)
-                                                ]
-                                           end,
-                                           nothing,
-                                           idEndUy1,
-                                           idEndUy1)
-        Scriti, = eigs(diffIsometry, nev=nisoev, ritzvec=false, tol=1e-6, maxiter=30);
-        @show Scriti
-        @show abs.(Scriti)
+                                              iiter += 1
+                                              iiter % 10 != 0 || (@info "ARPACK step $iiter.")
+                                              vec(dT2)
+                                          end,
+                                          nothing,
+                                          χc^4,
+                                          χc^4)
+        @tensor T_1[d, r, u, l] := T_STEP2[D, R, U, L] *
+            Diagonal(Sy_in)[D, d] * Diagonal(Sx_in)[R, r] *
+            Diagonal(Sy_in)[U, u] * Diagonal(Sx_in)[L, l]
+        T_2 = Array(diffIsometry * vec(T_1))
+        writedlm("T2_AD.$i.dat", reshape(T_2, size(T_STEP2)))
+        # ScritiAD, = eigs(LinearMap{Float64}(v -> begin
+        #                                         w = Array(diffIsometry * v)
+        #                                         w .* sign.(T_2) .* sign.(vec(T_STEP2))
+        #                                     end, nothing, χc^4, χc^4),
+        #                  nev=nisoev, ritzvec=false, tol=1e-2, maxiter=30);
+        # @show ScritiAD
+        # @show abs.(ScritiAD)
     end
 
     # For lines that might violate invariant rule, put them into blocks
