@@ -1,6 +1,52 @@
 # Derivative.
 #
 
+include("dsvd.jl")
+include("dsvds.jl")
+
+bond_trg_derivative(T::Array{ElType, 4},
+                    ∂T::Array{ElType, 4},
+                    Ux0_2iso::Array{ElType, 3},
+                    Ux1_2iso::Array{ElType, 3},
+                    Uy0_2iso::Array{ElType, 3},
+                    Uy1_2iso::Array{ElType, 3},
+                    Sx_2::Vector{ElType},
+                    Sy_2::Vector{ElType};
+                    Tx=missing, ∂Tx=missing,
+                    Ty=missing, ∂Ty=missing,
+                    infox=missing,
+                    infoy=missing) where {ElType<:Real} = begin
+    size(T) == size(∂T) || throw(DimensionMismatch("∂T of different size than T."))
+    χd, χr, χu, χl = size(T)
+    _, _, χc = size(Ux0_2iso)
+
+    if ismissing(Tx)
+        # Use T::Array.
+        Tx = reshape(T, (χd*χr, χu*χl))
+        ∂Tx = reshape(∂T, (χd*χr, χu*χl))
+        Ty = reshape(permutedims(T, (4, 1, 2, 3)), (χl*χd, χr*χu))
+        ∂Ty = reshape(permutedims(∂T, (4, 1, 2, 3)), (χl*χd, χr*χu))
+    end
+
+    _, ∂Ux0_2iso, _, ∂Sx, _, ∂Ux1_2iso =
+        ∂svd_(Tx, ∂Tx,
+              reshape(Ux0_2iso, (χd*χr, χc)),
+              Sx_2,
+              reshape(Ux1_2iso, (χu*χl, χc)), info=infox)
+    _, ∂Uy0_2iso, _, ∂Sy, _, ∂Uy1_2iso =
+        ∂svd_(Ty, ∂Ty,
+              reshape(Uy0_2iso, (χl*χd, χc)),
+              Sy_2,
+              reshape(Uy1_2iso, (χr*χu, χc)), info=infoy)
+
+    (reshape(∂Ux0_2iso, size(Ux0_2iso)),
+     reshape(∂Ux1_2iso, size(Ux1_2iso)),
+     reshape(∂Uy0_2iso, size(Uy0_2iso)),
+     reshape(∂Uy1_2iso, size(Uy1_2iso)),
+     ∂Sx,
+     ∂Sy)
+end
+
 bond_trg_derivative(Ux0_s::Array{ElType, 3}, ∂Ux0_s::Array{ElType, 3}, # << This ∂ is imposed on S_innery Ux0. Not just Ux0.
                     Ux1_s::Array{ElType, 3}, ∂Ux1_s::Array{ElType, 3},
                     Uy0_s::Array{ElType, 3}, ∂Uy0_s::Array{ElType, 3},
@@ -17,9 +63,6 @@ bond_trg_derivative(Ux0_s::Array{ElType, 3}, ∂Ux0_s::Array{ElType, 3}, # << Th
 
     χ1, _, χk = size(Ux0_s)
     χ2, _, χs = size(Ux0_2iso)
-    Ux0_2isom, Sx_2ext, Ux1_2isom = infox
-    Uy0_2isom, Sy_2ext, Uy1_2isom = infoy
-    _, χc = size(Ux0_2isom)
 
     Tx = LinearMap{ElType}(v -> begin
                                M = reshape(v, (χ2, χ2))
@@ -91,52 +134,15 @@ bond_trg_derivative(Ux0_s::Array{ElType, 3}, ∂Ux0_s::Array{ElType, 3}, # << Th
                                 vec(M)
                             end, χ2^2, χ2^2)
 
-    # SpGE→GE multiplication
-    spmm(A, B) = Array(A * B)
-
-    # Ux-part, diagonal part.
-    begin
-        local dAVx = spmm(∂Tx, Ux1_2isom)
-        local dAUx = spmm(∂Tx',Ux0_2isom)
-        local UdAVx = Ux0_2isom'dAVx
-        local Fij, UdAVSx, SUdAVx, US2x, VS2x, ∂LHS_ΓUx, ∂ΓUx, ∂LHS_ΠVx, ∂ΠVx
-        ∂Sx = diag(UdAVx)[1:χs]
-        Fij = [if i == j
-                   0.0
-               else
-                   safercp(Sx_2ext[j]^2 - Sx_2ext[i]^2, 1.0, 1e-1, 1e-2)
-               end for i=1:χc, j=1:χc]
-        UdAVSx = UdAVx * Diagonal(Sx_2ext)
-        SUdAVx = Diagonal(Sx_2ext) * UdAVx
-        ∂Ux0_2iso = Ux0_2isom * (Fij .*(UdAVSx + UdAVSx'))[:, 1:χs] + (dAVx - Ux0_2isom * UdAVx) * Diagonal(safercp.(Sx_2ext))[:, 1:χs]
-        ∂Ux1_2iso = Ux1_2isom * (Fij .*(SUdAVx + SUdAVx'))[:, 1:χs] + (dAUx - Ux1_2isom * UdAVx')* Diagonal(safercp.(Sx_2ext))[:, 1:χs]
-    end
-
-    # Uy-part, diagonal part.
-    begin
-        local dAVy = spmm(∂Ty, Uy1_2isom)
-        local dAUy = spmm(∂Ty',Uy0_2isom)
-        local UdAVy = Uy0_2isom'dAVy
-        local Fij, UdAVSy, SUdAVy, US2y, VS2y, ∂LHS_ΓUy, ∂ΓUy, ∂LHS_ΠVy, ∂ΠVy
-        ∂Sy = diag(UdAVy)[1:χs]
-        Fij = [if i == j
-                   0.0
-               else
-                   safercp(Sy_2ext[j]^2 - Sy_2ext[i]^2, 1.0, 1e-1, 1e-2)
-               end for i=1:χc, j=1:χc]
-        UdAVSy = UdAVy * Diagonal(Sy_2ext)
-        SUdAVy = Diagonal(Sy_2ext) * UdAVy
-        ∂Uy0_2iso = Uy0_2isom * (Fij .*(UdAVSy + UdAVSy'))[:, 1:χs] + (dAVy - Uy0_2isom * UdAVy) * Diagonal(safercp.(Sy_2ext))[:, 1:χs]
-        ∂Uy1_2iso = Uy1_2isom * (Fij .*(SUdAVy + SUdAVy'))[:, 1:χs] + (dAUy - Uy1_2isom * UdAVy')* Diagonal(safercp.(Sy_2ext))[:, 1:χs]
-    end
-
-    (reshape(∂Ux0_2iso, size(Ux0_2iso)),
-     reshape(∂Ux1_2iso, size(Ux1_2iso)),
-     reshape(∂Uy0_2iso, size(Uy0_2iso)),
-     reshape(∂Uy1_2iso, size(Uy1_2iso)),
-     ∂Sx,
-     ∂Sy)
+    bond_trg_derivative(zeros(χ2, χ2, χ2, χ2),
+                        zeros(χ2, χ2, χ2, χ2),
+                        Ux0_2iso, Ux1_2iso,
+                        Uy0_2iso, Uy1_2iso,
+                        Sx_2,
+                        Sy_2;
+                        Tx=Tx, ∂Tx=∂Tx,
+                        Ty=Ty, ∂Ty=∂Ty,
+                        infox=infox,
+                        infoy=infoy)
 end
-
-include("dsvd.jl")
 

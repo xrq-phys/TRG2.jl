@@ -77,3 +77,21 @@ end
     U, ∂U, Sx, ∂Sx, V, ∂V
 end
 
+∂svd_(A, ∂A, U, S, V; info=missing) = begin
+    χ1, χ2 = size(A)
+    χs = length(S)
+    local χc
+
+    if ismissing(info)
+        χc = min(χ1, χ2, 2*χs)
+        (U, S, V), = svds(A, nsv=χc)
+    else
+        U, S, V = info
+        χc = length(S)
+    end
+    _, dU, _, dS, _, dV = ∂svd(A, ∂A, U, S, V)
+    (U[:, 1:χs], dU[:, 1:χs],
+     S[1:χs], dS[1:χs],
+     V[:, 1:χs], dV[:, 1:χs])
+end
+
