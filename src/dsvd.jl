@@ -13,8 +13,8 @@ SupportedMap{T} = Union{Matrix{T}, LinearMap{T}}
     ∂svd(A, dA, U, s, V)
 end
 
-∂svd(A ::SupportedMap{ElType},
-     dA::SupportedMap{ElType},
+∂svd(A ::SupportedMap{T},
+     dA::SupportedMap{T},
      U::AbstractMatrix{T},
      s::AbstractVector{T},
      V::AbstractMatrix{T}) where {T} = begin
