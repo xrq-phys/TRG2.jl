@@ -35,7 +35,7 @@ end
     U, dU, s, ds, V, dV
 end
 
-safercp(x, c=0.0, tol=1e-1, brd=1e-2) = begin
+safercp(x, c=0.0, tol=1e-10, brd=1e-12) = begin
     # In fact this operation will sometimes cause big error.
     if abs(x) < tol
         return x / (x^2 + brd) + c
