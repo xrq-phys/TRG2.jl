@@ -89,8 +89,8 @@ for i = 1:40
         global T_STEP2
         @tensor T_STEP2[d, r, u, l] := Uy1[bl, bu, d] * Ux1[bd, bl, r] * Uy0[br, bd, u] * Ux0[bu, br, l]
         @tensor T_1[d, r, u, l] := T_STEP2[D, R, U, L] *
-            Diagonal(Sy)[D, d] * Diagonal(Sx)[R, r] *
-            Diagonal(Sy)[U, u] * Diagonal(Sx)[L, l]
+            Diagonal(Sy.^0.5)[D, d] * Diagonal(Sx.^0.5)[R, r] *
+            Diagonal(Sy.^0.5)[U, u] * Diagonal(Sx.^0.5)[L, l]
         writedlm("T.$i.dat", T_1)
     end
 
@@ -165,10 +165,10 @@ for i = 1:40
         diffIsometry = LinearMap{Float64}(v -> begin
                                               dT = reshape(v, (χc, χc, χc, χc))
                                               @tensor dT[d, r, u, l] := dT[D, R, U, L] *
-                                                  Diagonal(inv_exp.(Sx_in, 1))[d, D] *
-                                                  Diagonal(inv_exp.(Sx_in, 1))[u, U] *
-                                                  Diagonal(inv_exp.(Sy_in, 1))[r, R] *
-                                                  Diagonal(inv_exp.(Sy_in, 1))[l, L]
+                                                  Diagonal(inv_exp.(Sx_in, 1/2))[d, D] *
+                                                  Diagonal(inv_exp.(Sx_in, 1/2))[u, U] *
+                                                  Diagonal(inv_exp.(Sy_in, 1/2))[r, R] *
+                                                  Diagonal(inv_exp.(Sy_in, 1/2))[l, L]
                                               # TODO: Add conj.
                                               @tensor dUx0_E[Br, Bd, El] := dT[Br, Bd, u, l] * Ux1ᵀQ[u, l, El]
                                               @tensor dUx1_E[Bl, Bu, Er] := dT[d, r, Bl, Bu] * Ux0ᵀQ[d, r, Er]
@@ -189,10 +189,10 @@ for i = 1:40
                                                   # ((dUy1_E[Bu, Br, d] * Ux1_E[Bl, Bu, r]) *
                                                   #  ( Uy0_E[Bd, Bl, u] * Ux0_E[Br, Bd, l]))
                                               @tensor dT2[d, r, u, l] := dT2[D, R, U, L] *
-                                                  Diagonal(inv_exp.(Sx_2, kscal))[d, D] *
-                                                  Diagonal(inv_exp.(Sx_2, kscal))[u, U] *
-                                                  Diagonal(inv_exp.(Sy_2, kscal))[r, R] *
-                                                  Diagonal(inv_exp.(Sy_2, kscal))[l, L] * Zcur^(-1)
+                                                  Diagonal(inv_exp.(Sx_2, kscal/2))[d, D] *
+                                                  Diagonal(inv_exp.(Sx_2, kscal/2))[u, U] *
+                                                  Diagonal(inv_exp.(Sy_2, kscal/2))[r, R] *
+                                                  Diagonal(inv_exp.(Sy_2, kscal/2))[l, L] * Zcur^(-1)
 
                                               iiter += 1
                                               iiter % 10 != 0 || (@info "ARPACK step $iiter.")
@@ -202,8 +202,8 @@ for i = 1:40
                                           χc^4,
                                           χc^4)
         @tensor T_1[d, r, u, l] := T_STEP2[D, R, U, L] *
-            Diagonal(Sy_in)[D, d] * Diagonal(Sx_in)[R, r] *
-            Diagonal(Sy_in)[U, u] * Diagonal(Sx_in)[L, l]
+            Diagonal(Sy_in.^0.5)[D, d] * Diagonal(Sx_in.^0.5)[R, r] *
+            Diagonal(Sy_in.^0.5)[U, u] * Diagonal(Sx_in.^0.5)[L, l]
         T_2 = Array(diffIsometry * vec(T_1))
         writedlm("T2.$i.dat", reshape(T_2, size(T_STEP2)))
         Scriti, _ = eigs(LinearMap{Float64}(v -> begin
@@ -221,6 +221,8 @@ for i = 1:40
         local Ux1_E = copy(Ux1_2_STEP3)
         local Uy0_E = copy(Uy0_2_STEP3)
         local Uy1_E = copy(Uy1_2_STEP3)
+        local Sx_E = (Sx_2).^0.5
+        local Sy_E = (Sy_2).^0.5
 
         # Absorb inner bond weights into **unscaled** `U`s.
         TRG2.bond_merge!(Ux0_E, Ux1_E,
@@ -235,10 +237,10 @@ for i = 1:40
         diffIsometry = LinearMap{Float64}(v -> begin
                                               dT = reshape(v, (χc, χc, χc, χc))
                                               @tensor dT[d, r, u, l] := dT[D, R, U, L] *
-                                                  Diagonal(inv_exp.(Sx_in, 1))[d, D] *
-                                                  Diagonal(inv_exp.(Sx_in, 1))[u, U] *
-                                                  Diagonal(inv_exp.(Sy_in, 1))[r, R] *
-                                                  Diagonal(inv_exp.(Sy_in, 1))[l, L]
+                                                  Diagonal(inv_exp.(Sx_in, 1/2))[d, D] *
+                                                  Diagonal(inv_exp.(Sx_in, 1/2))[u, U] *
+                                                  Diagonal(inv_exp.(Sy_in, 1/2))[r, R] *
+                                                  Diagonal(inv_exp.(Sy_in, 1/2))[l, L]
 
                                               # Compute derivative.
                                               (∂Ux0_2, ∂Ux1_2,
@@ -252,8 +254,8 @@ for i = 1:40
                                                                                  Ux1_2_STEP3,
                                                                                  Uy0_2_STEP3,
                                                                                  Uy1_2_STEP3,
-                                                                                 Sx_2,
-                                                                                 Sy_2,
+                                                                                 Sx_2.*Zcur,
+                                                                                 Sy_2.*Zcur,
                                                                                  # This info is always necessary.
                                                                                  infox=infox,
                                                                                  infoy=infoy)
@@ -273,22 +275,24 @@ for i = 1:40
                                                    ( Uy0_E[Bd, Bl, u] * Ux0_E[Br, Bd, l]))
                                               # Both U and ∂U has their final leg unscaled.
                                               # Here multiply the original S without exponent.
+                                              ∂Sx_E = 0.5 .*∂Sx_2./Zcur./Sx_E
+                                              ∂Sy_E = 0.5 .*∂Sy_2./Zcur./Sy_E
                                               @tensor dT2[d, r, u, l] := 
                                                   (dT2[D, R, U, L] *
-                                                      Diagonal( Sx_2)[d, D] * Diagonal( Sx_2)[u, U] *
-                                                      Diagonal( Sy_2)[r, R] * Diagonal( Sy_2)[l, L]) +
+                                                      Diagonal( Sx_E)[d, D] * Diagonal( Sx_E)[u, U] *
+                                                      Diagonal( Sy_E)[r, R] * Diagonal( Sy_E)[l, L]) +
                                                   (T2[D, R, U, L] *
-                                                      Diagonal(∂Sx_2)[d, D] * Diagonal( Sx_2)[u, U] *
-                                                      Diagonal( Sy_2)[r, R] * Diagonal( Sy_2)[l, L]) +
+                                                      Diagonal(∂Sx_E)[d, D] * Diagonal( Sx_E)[u, U] *
+                                                      Diagonal( Sy_E)[r, R] * Diagonal( Sy_E)[l, L]) +
                                                   (T2[D, R, U, L] *
-                                                      Diagonal( Sx_2)[d, D] * Diagonal( Sx_2)[u, U] *
-                                                      Diagonal(∂Sy_2)[r, R] * Diagonal( Sy_2)[l, L]) +
+                                                      Diagonal( Sx_E)[d, D] * Diagonal( Sx_E)[u, U] *
+                                                      Diagonal(∂Sy_E)[r, R] * Diagonal( Sy_E)[l, L]) +
                                                   (T2[D, R, U, L] *
-                                                      Diagonal( Sx_2)[d, D] * Diagonal(∂Sx_2)[u, U] *
-                                                      Diagonal( Sy_2)[r, R] * Diagonal( Sy_2)[l, L]) +
+                                                      Diagonal( Sx_E)[d, D] * Diagonal(∂Sx_E)[u, U] *
+                                                      Diagonal( Sy_E)[r, R] * Diagonal( Sy_E)[l, L]) +
                                                   (T2[D, R, U, L] *
-                                                      Diagonal( Sx_2)[d, D] * Diagonal( Sx_2)[u, U] *
-                                                      Diagonal( Sy_2)[r, R] * Diagonal(∂Sy_2)[l, L])
+                                                      Diagonal( Sx_E)[d, D] * Diagonal( Sx_E)[u, U] *
+                                                      Diagonal( Sy_E)[r, R] * Diagonal(∂Sy_E)[l, L])
 
                                               iiter += 1
                                               iiter % 10 != 0 || (@info "ARPACK step $iiter.")
@@ -298,17 +302,18 @@ for i = 1:40
                                           χc^4,
                                           χc^4)
         @tensor T_1[d, r, u, l] := T_STEP2[D, R, U, L] *
-            Diagonal(Sy_in)[D, d] * Diagonal(Sx_in)[R, r] *
-            Diagonal(Sy_in)[U, u] * Diagonal(Sx_in)[L, l]
+            Diagonal(Sy_in.^0.5)[D, d] * Diagonal(Sx_in.^0.5)[R, r] *
+            Diagonal(Sy_in.^0.5)[U, u] * Diagonal(Sx_in.^0.5)[L, l]
         T_2 = Array(diffIsometry * vec(T_1))
         writedlm("T2_AD.$i.dat", reshape(T_2, size(T_STEP2)))
-        # ScritiAD, = eigs(LinearMap{Float64}(v -> begin
-        #                                         w = Array(diffIsometry * v)
-        #                                         w .* sign.(T_2) .* sign.(vec(T_STEP2))
-        #                                     end, nothing, χc^4, χc^4),
-        #                  nev=nisoev, ritzvec=false, tol=1e-2, maxiter=30);
-        # @show ScritiAD
-        # @show abs.(ScritiAD)
+        ScritiAD, = eigs(LinearMap{Float64}(v -> begin
+                                                w = Array(diffIsometry * v)
+                                                # NOTE: Here its `T2` above, not `T_2`, here.
+                                                w .* sign.(vec(T2)) .* sign.(vec(T_STEP2))
+                                            end, nothing, χc^4, χc^4),
+                         nev=nisoev, ritzvec=false, tol=1e-3, maxiter=30);
+        @show ScritiAD
+        @show abs.(ScritiAD)
     end
 
     # For lines that might violate invariant rule, put them into blocks
