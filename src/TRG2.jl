@@ -90,9 +90,11 @@ bond_trg(Ux0::Array{ElType, 3},
         # TODO: conj missing.
         @tensor T[d, r, u, l] := Uy1[bl, bu, d] * Ux1[bd, bl, r] * Uy0[br, bd, u] * Ux0[bu, br, l]
         χd, χr, χu, χl = size(T)
-        Ux0_2, Sx_2, Ux1_2 = svd(reshape(T, (χd*χr, χu*χl)))
-        Uy0_2, Sy_2, Uy1_2 = svd(reshape(permutedims(T, (4, 1, 2, 3)), (χl*χd, χr*χu)))
+        infox = svd(reshape(T, (χd*χr, χu*χl)))
+        infoy = svd(reshape(permutedims(T, (4, 1, 2, 3)), (χl*χd, χr*χu)))
 
+        Ux0_2, Sx_2, Ux1_2 = infox
+        Uy0_2, Sy_2, Uy1_2 = infoy
         # Truncate
         if χd*χr > χcut
             Ux0_2 = Ux0_2[:, 1:χcut]
@@ -108,8 +110,6 @@ bond_trg(Ux0::Array{ElType, 3},
             Sref = Sx_2
             χcut = χd*χr
         end
-        infox = nothing
-        infoy = nothing
     else
         _, _, χd = size(Uy1)
         _, _, χr = size(Ux1)
