@@ -42,7 +42,7 @@ end
     UdAVS = UdAV * Diagonal(Sx)
     SUdAV = Diagonal(Sx) * UdAV
     ∂U = U * (Fij .*(UdAVS + UdAVS'))
-    ∂V = V * (Fij .*(SUdAV + SUdAV'))
+    # ∂V = V * (Fij .*(SUdAV + SUdAV'))
     US2 = U * Diagonal(Sx.^2)
     VS2 = V * Diagonal(Sx.^2)
 
@@ -61,18 +61,20 @@ end
     @show convUx
     ∂U += ∂ΓU
 
+    # V from ∂U computed.
+    ∂V = (spmm(∂A', U) + spmm(A', ∂U) - V * Diagonal(∂Sx)) * Diagonal(Sx.^(-1))
     # V off-diagonal part.
-    ∂LHS_ΠV = spmm(∂A', U) * Diagonal(Sx) + spmm(A', spmm(∂A, V))
-    ∂LHS_ΠV -= V * (SUdAV + SUdAV')
-    ∂ΠV = spmm(∂A', U) * Diagonal(1.0 ./Sx) - V * UdAV'* Diagonal(1.0 ./Sx)
-    _, convVx = cg!(vec(∂ΠV),
-                    LinearMap{ElType}(∂w -> begin
-                                          ∂Π = reshape(∂w, (χi, χc))
-                                          vec(∂Π*Diagonal(Sx.^2) - spmm(A', spmm(A, ∂Π)) + VS2*V'∂Π)
-                                      end, nothing, χi*χc, χi*χc),
-                    vec(∂LHS_ΠV), log=true)
-    @show convVx
-    ∂V += ∂ΠV
+    # ∂LHS_ΠV = spmm(∂A', U) * Diagonal(Sx) + spmm(A', spmm(∂A, V))
+    # ∂LHS_ΠV -= V * (SUdAV + SUdAV')
+    # ∂ΠV = spmm(∂A', U) * Diagonal(1.0 ./Sx) - V * UdAV'* Diagonal(1.0 ./Sx)
+    # _, convVx = cg!(vec(∂ΠV),
+    #                 LinearMap{ElType}(∂w -> begin
+    #                                       ∂Π = reshape(∂w, (χi, χc))
+    #                                       vec(∂Π*Diagonal(Sx.^2) - spmm(A', spmm(A, ∂Π)) + VS2*V'∂Π)
+    #                                   end, nothing, χi*χc, χi*χc),
+    #                 vec(∂LHS_ΠV), log=true)
+    # @show convVx
+    # ∂V += ∂ΠV
 
     U, ∂U, Sx, ∂Sx, V, ∂V
 end
